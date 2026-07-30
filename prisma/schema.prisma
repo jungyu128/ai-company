@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Owner session / future audit — AI Company does not use WorkPilot CRM models.
+model OwnerSession {
+  id        String   @id @default(cuid())
+  label     String
+  createdAt DateTime @default(now())
+  lastSeen  DateTime @updatedAt
+}
+
+/// Audit log for GitHub write actions (never stores GITHUB_TOKEN).
+model GitHubActionAudit {
+  id          String   @id @default(cuid())
+  action      String
+  detail      String
+  approvedBy  String
+  featureBranch String?
+  createdAt   DateTime @default(now())
+}

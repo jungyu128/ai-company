@@ -1,0 +1,36 @@
+{
+  "name": "ai-company",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Private internal AI development company that builds WorkPilot",
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build --webpack",
+    "start": "next start",
+    "lint": "eslint",
+    "db:generate": "prisma generate",
+    "postinstall": "prisma generate",
+    "test": "tsx --test src/__tests__/builder/**/*.test.ts",
+    "test:builder": "tsx --test src/__tests__/builder/**/*.test.ts",
+    "test:ai-company": "node --test docs/ai-team/runtime/__tests__/*.mjs",
+    "ai-company:enter": "node docs/ai-team/runtime/bin/enter-ai-company.mjs"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "next": "16.2.10",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "prisma": "^6.19.3",
+    "tailwindcss": "^4",
+    "tsx": "^4.22.4",
+    "typescript": "^5"
+  }
+}

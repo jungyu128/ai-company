@@ -1,0 +1,530 @@
+{
+  "signals": [
+    {
+      "id": "sig-alex-overdue_meeting-2026-07-30",
+      "employeeId": "alex",
+      "kind": "overdue_meeting",
+      "category": "risk",
+      "title": "Overdue meeting follow-ups",
+      "detail": "Alex found meetings that still lack notes or next steps.",
+      "severity": 3,
+      "sourceMissionId": null,
+      "detectedAt": "2026-07-30T07:49:01.217Z"
+    },
+    {
+      "id": "sig-emma-unanswered_email-2026-07-30",
+      "employeeId": "emma",
+      "kind": "unanswered_email",
+      "category": "alert",
+      "title": "Unanswered emails need triage",
+      "detail": "Emma reviewed the executive inbox and found threads without a reply.",
+      "severity": 3,
+      "sourceMissionId": null,
+      "detectedAt": "2026-07-30T07:49:01.217Z"
+    },
+    {
+      "id": "sig-sarah-inactive_customer-2026-07-30",
+      "employeeId": "sarah",
+      "kind": "inactive_customer",
+      "category": "opportunity",
+      "title": "Inactive customers to re-engage",
+      "detail": "Sarah spotted accounts with no recent sales motion.",
+      "severity": 3,
+      "sourceMissionId": null,
+      "detectedAt": "2026-07-30T07:49:01.217Z"
+    },
+    {
+      "id": "sig-david-expired_document-2026-07-30",
+      "employeeId": "david",
+      "kind": "expired_document",
+      "category": "risk",
+      "title": "Expired documents in the library",
+      "detail": "David found documents past their review date.",
+      "severity": 2,
+      "sourceMissionId": null,
+      "detectedAt": "2026-07-30T07:49:01.217Z"
+    }
+  ],
+  "recommendations": [
+    {
+      "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email-",
+      "title": "Inactive customers to re-engage",
+      "recommendation": "Recommend contacting inactive accounts today.",
+      "reasoning": "Alex closed after 5 specialist notes. David's input shaped the call: I can prepare a proposal. David's input shaped the call: Document readiness is incomplete — the brief or proposal pack is not yet CEO-ready (internal signals only; live connector unavailable).",
+      "confidence": 92,
+      "expectedImpact": "Fewer schedule collisions, protected focus time, and cleaner meeting-to-decision flow.",
+      "category": "risk",
+      "leadEmployeeId": "sarah",
+      "participatingEmployees": [
+        {
+          "id": "alex",
+          "name": "Alex",
+          "role": "Calendar Manager"
+        },
+        {
+          "id": "david",
+          "name": "David",
+          "role": "Document Manager"
+        },
+        {
+          "id": "emma",
+          "name": "Emma",
+          "role": "Email Manager"
+        }
+      ],
+      "internalDiscussion": [
+        {
+          "id": "sig-sarah-inactive_customer-2026-07-30-disc-sarah",
+          "employeeId": "sarah",
+          "employeeName": "Sarah",
+          "role": "Sales Manager",
+          "body": "I found a sales opportunity.",
+          "at": "2026-07-30T00:55:16.718Z",
+          "kind": "update"
+        },
+        {
+          "id": "sig-sarah-inactive_customer-2026-07-30-disc-david",
+          "employeeId": "david",
+          "employeeName": "David",
+          "role": "Document Manager",
+          "body": "I can prepare a proposal.",
+          "at": "2026-07-30T00:55:46.718Z",
+          "kind": "handoff"
+        },
+        {
+          "id": "sig-sarah-inactive_customer-2026-07-30-disc-emma",
+          "employeeId": "emma",
+          "employeeName": "Emma",
+          "role": "Email Manager",
+          "body": "I can draft the email.",
+          "at": "2026-07-30T00:56:16.718Z",
+          "kind": "handoff"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--ceo-ask-2026-07-30T00:55:18.072Z",
+          "employeeId": "ceo",
+          "employeeName": "CEO",
+          "role": "Executive",
+          "body": "Can you clarify the recommendation?",
+          "at": "2026-07-30T00:55:18.072Z",
+          "kind": "approval"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--lead-reply-2026-07-30T00:55:18.072Z",
+          "employeeId": "sarah",
+          "employeeName": "Sarah",
+          "role": "Sales Manager",
+          "body": "Thanks — I'll refine the plan.",
+          "at": "2026-07-30T00:55:38.072Z",
+          "kind": "update"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--ceo-ask-2026-07-30T01:05:36.091Z",
+          "employeeId": "ceo",
+          "employeeName": "CEO",
+          "role": "Executive",
+          "body": "Alex, before I approve this, I need a concise summary of your reasoning and the expected impact",
+          "at": "2026-07-30T01:05:36.091Z",
+          "kind": "approval"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--lead-reply-2026-07-30T01:05:36.091Z",
+          "employeeId": "sarah",
+          "employeeName": "Sarah",
+          "role": "Sales Manager",
+          "body": "Thanks — I'll refine the plan around: Alex, before I approve this, I need a concise summary of your reasoning and the expected impact.",
+          "at": "2026-07-30T01:05:56.091Z",
+          "kind": "update"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--ceo-ask-2026-07-30T01:05:43.178Z",
+          "employeeId": "ceo",
+          "employeeName": "CEO",
+          "role": "Executive",
+          "body": "Alex, before I approve this, I need a concise summary of your reasoning and the expected impact",
+          "at": "2026-07-30T01:05:43.178Z",
+          "kind": "approval"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--lead-reply-2026-07-30T01:05:43.178Z",
+          "employeeId": "sarah",
+          "employeeName": "Sarah",
+          "role": "Sales Manager",
+          "body": "Thanks — I'll refine the plan around: Alex, before I approve this, I need a concise summary of your reasoning and the expected impact.",
+          "at": "2026-07-30T01:06:03.178Z",
+          "kind": "update"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--ceo-ask-2026-07-30T01:06:27.420Z",
+          "employeeId": "ceo",
+          "employeeName": "CEO",
+          "role": "Executive",
+          "body": "Alex, discuss this with the team again and present a final recommendation with clear reasoning and confidence.",
+          "at": "2026-07-30T01:06:27.420Z",
+          "kind": "approval"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--lead-reply-2026-07-30T01:06:27.420Z",
+          "employeeId": "sarah",
+          "employeeName": "Sarah",
+          "role": "Sales Manager",
+          "body": "Thanks — I'll refine the plan around: Alex, discuss this with the team again and present a final recommendation with clear reasoning and confidence..",
+          "at": "2026-07-30T01:06:47.420Z",
+          "kind": "update"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--ceo-ask-2026-07-30T02:26:28.509Z",
+          "employeeId": "ceo",
+          "employeeName": "CEO",
+          "role": "Executive",
+          "body": "Alex, before I approve this recommendation, explain your reasoning in detail. If needed, invite the relevant employees to provide their domain-specific input, then present one final recommendation with your confidence level and any risks.",
+          "at": "2026-07-30T02:26:28.509Z",
+          "kind": "approval"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--owner-reply-2026-07-30T02:26:28.509Z",
+          "employeeId": "sarah",
+          "employeeName": "Sarah",
+          "role": "Sales Manager",
+          "body": "I own this sales thread and see a pipeline priority that needs a clear next move. Without an owned recommendation, revenue timing slips. I will synthesize domain input into one sales recommendation for you.",
+          "at": "2026-07-30T02:26:48.509Z",
+          "kind": "update"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--synth-2026-07-30T02:27:08.509Z",
+          "employeeId": "sarah",
+          "employeeName": "Sarah",
+          "role": "Sales Manager",
+          "body": "Sarah: Recommendation — Recommend contacting inactive accounts today. Reasoning — Signal severity 3/5. 3 employees aligned in internal discussion. Expected impact — Reduce operational risk before it escalates. Risks — Uncertainty remains because live systems are disconnected. Estimates are based on available internal signals or mock data; live email, calendar, documents, CRM connectors were not read. Confidence — 92%. Participants — Sarah, David, Emma. Estimates are based on available internal signals or mock data; live email, calendar, documents, CRM connectors were not read.",
+          "at": "2026-07-30T02:27:08.509Z",
+          "kind": "request"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--ceo-ask-2026-07-30T03:09:32.141Z",
+          "employeeId": "ceo",
+          "employeeName": "CEO",
+          "role": "Executive",
+          "body": "Sprint 1 Part 4 is complete.\n\n### 1. Files changed\n- `src/services/builder/ceo-discussion-orchestration.logic.ts` — **new** addressee/invite/integrity helpers\n- `src/services/builder/discussion-quality.logic.ts` — natural openings; contribution-aware synthesis; single connector caveat\n- `src/services/builder/conversation-routing.logic.ts` — invite-aware owner opening; contributions may return `null`\n- `src/services/builder/proactive.logic.ts` — ask path: reassign → owner → invite → contribute → synthesize\n- `src/services/builder/conversation.logic.ts` — `employeeId` allows `\"system\"`\n- `src/features/builder/components/employee-conversation-timeline.tsx` — minimal system-turn styling\n- `src/__tests__/builder/ceo-discussion-part4.test.ts` — **new**\n- `src/__tests__/builder/conversation-routing.test.ts` / `discussion-quality.test.ts` — updated\n\n### 2. Root cause\nAsk always routed to the existing owner (e.g. Sarah), immediately synthesized, and listed invitees from metadata/templates without running `inviteToRecommendationDiscussion` or appending peer turns. Owner openers used internal “I own this thread…” language.\n\n### 3. Explicit addressee behavior\nDetects clear CEO address (`Alex, …`, `Ask Alex to…`, `Have Alex lead…`). If different from current owner: updates `conversationOwnerId`, appends system reassignment turn, then only the new owner speaks next. Incidental name mentions do not reassign. `leadEmployeeId` unchanged.\n\n### 4. Invite + visible discussion\nOn collaboration intent, owner selects relevant peers, calls invite helpers, and each successful invite gets a visible domain contribution (observation / implication / action, ≤3 sentences) before final synthesis.\n\n### 5. Participant integrity\n`participatingEmployees` comes only from `deriveParticipantsFromConversationTurns` (owner + successful contribution turns). Invite announcements alone do not count. Failed contributions are excluded.\n\n### 6. Tests\nPart 4 suite covers addressee routing, incidental names, invites, integrity, chronology, natural language, synthesis quality, owner-only path, and backward compatibility.\n\n### 7. Verification\n- Targeted routing / discussion-quality / proactive / Part 4: **pass**\n- Builder suite: **143 pass / 0 fail**\n- `tsc --noEmit`: **pass**\n\n### 8. Remaining limitations\n- Addressee detection is pattern-based (English name forms); unusual phrasing may miss.\n- Peer selection is deterministic heuristics, not free-form NLP.\n- No separate UI control for invite (still driven by CEO ask text on the existing Ask action).\n- Workspace / mission / execution / memory / activity-feed issues remain out of scope (per brief).",
+          "at": "2026-07-30T03:09:32.141Z",
+          "kind": "approval"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--reassign-2026-07-30T03:09:42.141Z",
+          "employeeId": "system",
+          "employeeName": "System",
+          "role": "Coordinator",
+          "body": "Discussion reassigned from Sarah to Alex by CEO.",
+          "at": "2026-07-30T03:09:42.141Z",
+          "kind": "system"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--owner-reply-2026-07-30T03:09:52.141Z",
+          "employeeId": "alex",
+          "employeeName": "Alex",
+          "role": "Calendar Manager",
+          "body": "I'll review the recommendation against the available conflict detection. I also need David and Emma input before I can give you a reliable final recommendation. I'll invite those specialists next, then close with one recommendation.",
+          "at": "2026-07-30T03:10:12.141Z",
+          "kind": "update"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--invite-david-2026-07-30T03:10:17.141Z",
+          "employeeId": "alex",
+          "employeeName": "Alex",
+          "role": "Calendar Manager",
+          "body": "Alex invited David to contribute from their domain.",
+          "at": "2026-07-30T03:10:17.141Z",
+          "kind": "handoff"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--contrib-david-2026-07-30T03:10:27.141Z",
+          "employeeId": "david",
+          "employeeName": "David",
+          "role": "Document Manager",
+          "body": "Document readiness is incomplete — the brief or proposal pack is not yet CEO-ready (internal signals only; live connector unavailable). Outreach or decisions made without a finished document create rework and mixed messaging. Produce a concise brief/proposal draft and mark it ready for approval review.",
+          "at": "2026-07-30T03:10:27.141Z",
+          "kind": "handoff"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--invite-emma-2026-07-30T03:10:42.141Z",
+          "employeeId": "alex",
+          "employeeName": "Alex",
+          "role": "Calendar Manager",
+          "body": "Alex invited Emma to contribute from their domain.",
+          "at": "2026-07-30T03:10:42.141Z",
+          "kind": "handoff"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--contrib-emma-2026-07-30T03:10:52.141Z",
+          "employeeId": "emma",
+          "employeeName": "Emma",
+          "role": "Email Manager",
+          "body": "Email follow-up needs a defined recipient, tone, and send window for the draft (internal signals only; live connector unavailable). Vague outreach timing or tone risks missed replies and executive inbox noise. Prepare a draft with recipient + tone notes and queue it for approval before send.",
+          "at": "2026-07-30T03:10:52.141Z",
+          "kind": "handoff"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--synth-2026-07-30T03:11:07.141Z",
+          "employeeId": "alex",
+          "employeeName": "Alex",
+          "role": "Calendar Manager",
+          "body": "Alex: Recommendation — Recommend contacting inactive accounts today. Reasoning — Alex closed after 9 specialist note(s). Sarah's input shaped the call: I found a sales opportunity. David's input shaped the call: I can prepare a proposal. Expected impact — Fewer schedule collisions, protected focus time, and cleaner meeting-to-decision flow. Risks — Residual risk if account priorities or timing shift before approval; re-check specialist notes if source signals change. Missing information — Live connector detail is unavailable, so recipient status, calendar holds, document versions, and CRM fields were not verified from source systems. Confidence — 92% (Confidence is 92% because 9 visible specialist contribution(s) support the recommendation, while live systems remain unread.) Participants — Alex, Sarah, David, Emma. Evidence — Evidence is based on available internal and demo signals; connected email, calendar, document, and CRM data was not read.",
+          "at": "2026-07-30T03:11:07.141Z",
+          "kind": "request"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--ceo-ask-2026-07-30T03:10:10.253Z",
+          "employeeId": "ceo",
+          "employeeName": "CEO",
+          "role": "Executive",
+          "body": "Alex, before I approve this recommendation, explain your reasoning. If needed, invite only the relevant employees, then give me one final recommendation with risks and confidence.",
+          "at": "2026-07-30T03:10:10.253Z",
+          "kind": "approval"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--owner-reply-2026-07-30T03:10:20.253Z",
+          "employeeId": "alex",
+          "employeeName": "Alex",
+          "role": "Calendar Manager",
+          "body": "I'll review the recommendation against the available conflict detection. I also need David and Emma input before I can give you a reliable final recommendation. I'll invite those specialists next, then close with one recommendation.",
+          "at": "2026-07-30T03:10:40.253Z",
+          "kind": "update"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--invite-david-2026-07-30T03:10:45.253Z",
+          "employeeId": "alex",
+          "employeeName": "Alex",
+          "role": "Calendar Manager",
+          "body": "Alex invited David to contribute from their domain.",
+          "at": "2026-07-30T03:10:45.253Z",
+          "kind": "handoff"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--contrib-david-2026-07-30T03:10:55.253Z",
+          "employeeId": "david",
+          "employeeName": "David",
+          "role": "Document Manager",
+          "body": "Document readiness is incomplete — the brief or proposal pack is not yet CEO-ready based on current internal signals (internal signals only; live connector unavailable). Therefore, Outreach or decisions made without a finished document create rework and mixed messaging. Next: Produce a concise brief/proposal draft and mark it ready for approval review.",
+          "at": "2026-07-30T03:10:55.253Z",
+          "kind": "handoff"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--invite-emma-2026-07-30T03:11:10.253Z",
+          "employeeId": "alex",
+          "employeeName": "Alex",
+          "role": "Calendar Manager",
+          "body": "Alex invited Emma to contribute from their domain.",
+          "at": "2026-07-30T03:11:10.253Z",
+          "kind": "handoff"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--contrib-emma-2026-07-30T03:11:20.253Z",
+          "employeeId": "emma",
+          "employeeName": "Emma",
+          "role": "Email Manager",
+          "body": "Email follow-up needs a defined recipient, tone, and send window for the draft based on current internal signals (internal signals only; live connector unavailable). Therefore, Vague outreach timing or tone risks missed replies and executive inbox noise. Next: Prepare a draft with recipient + tone notes and queue it for approval before send.",
+          "at": "2026-07-30T03:11:20.253Z",
+          "kind": "handoff"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--synth-2026-07-30T03:11:35.253Z",
+          "employeeId": "alex",
+          "employeeName": "Alex",
+          "role": "Calendar Manager",
+          "body": "Alex: Recommendation — Recommend contacting inactive accounts today. Reasoning — Alex closed after 11 specialist note(s). Sarah's input shaped the call: I found a sales opportunity. David's input shaped the call: I can prepare a proposal. Expected impact — Fewer schedule collisions, protected focus time, and cleaner meeting-to-decision flow. Risks — Residual risk if account priorities or timing shift before approval; re-check specialist notes if source signals change. Missing information — Live connector detail is unavailable, so recipient status, calendar holds, document versions, and CRM fields were not verified from source systems. Confidence — 92% (Confidence is 92% because 11 visible specialist contribution(s) support the recommendation, while live systems remain unread.) Participants — Alex, Sarah, David, Emma. Evidence — Evidence is based on available internal and demo signals; connected email, calendar, document, and CRM data was not read.",
+          "at": "2026-07-30T03:11:35.253Z",
+          "kind": "request"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--ceo-ask-2026-07-30T03:45:33.139Z",
+          "employeeId": "ceo",
+          "employeeName": "CEO",
+          "role": "Executive",
+          "body": "Before I approve this recommendation, explain your reasoning and invite only the employees you truly need.",
+          "at": "2026-07-30T03:45:33.139Z",
+          "kind": "approval"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--owner-reply-2026-07-30T03:45:43.139Z",
+          "employeeId": "alex",
+          "employeeName": "Alex",
+          "role": "Calendar Manager",
+          "body": "I'll review the recommendation against the available conflict detection. I also need David and Emma input before I can give you a reliable final recommendation. I'll invite those specialists next, then close with one recommendation.",
+          "at": "2026-07-30T03:46:03.139Z",
+          "kind": "update"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--invite-david-2026-07-30T03:46:08.139Z",
+          "employeeId": "system",
+          "employeeName": "System",
+          "role": "Coordinator",
+          "body": "Alex invited David to the discussion.",
+          "at": "2026-07-30T03:46:08.139Z",
+          "kind": "system"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--invite-skip-david-2026-07-30T03:46:18.139Z",
+          "employeeId": "alex",
+          "employeeName": "Alex",
+          "role": "Calendar Manager",
+          "body": "David could not provide a domain-ready contribution, so they were not included in the final participants.",
+          "at": "2026-07-30T03:46:18.139Z",
+          "kind": "update"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--invite-emma-2026-07-30T03:46:28.139Z",
+          "employeeId": "system",
+          "employeeName": "System",
+          "role": "Coordinator",
+          "body": "Alex invited Emma to the discussion.",
+          "at": "2026-07-30T03:46:28.139Z",
+          "kind": "system"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--invite-skip-emma-2026-07-30T03:46:38.139Z",
+          "employeeId": "alex",
+          "employeeName": "Alex",
+          "role": "Calendar Manager",
+          "body": "Emma could not provide a domain-ready contribution, so they were not included in the final participants.",
+          "at": "2026-07-30T03:46:38.139Z",
+          "kind": "update"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--synth-2026-07-30T03:46:48.139Z",
+          "employeeId": "alex",
+          "employeeName": "Alex",
+          "role": "Calendar Manager",
+          "body": "Alex:\nRecommendation\nRecommend contacting inactive accounts today.\n\nReasoning\nAlex closed after 5 specialist notes. David's input shaped the call: I can prepare a proposal. David's input shaped the call: Document readiness is incomplete — the brief or proposal pack is not yet CEO-ready (internal signals only; live connector unavailable).\n\nExpected Impact\nFewer schedule collisions, protected focus time, and cleaner meeting-to-decision flow.\n\nRisks\nResidual risk if account priorities or timing shift before approval; re-check specialist notes if source signals change.\n\nMissing Information\nLive connector detail is unavailable, so recipient status, calendar holds, document versions, and CRM fields were not verified from source systems.\n\nConfidence\n92% — Confidence is 92% because 5 visible specialist contributions support the recommendation, while live systems remain unread.\n\nParticipants\nAlex, David, Emma\n\nEvidence\nEvidence is based on available internal and demo signals; connected email, calendar, document, and CRM data was not read.",
+          "at": "2026-07-30T03:46:48.139Z",
+          "kind": "request"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--ceo-ask-2026-07-30T03:46:07.228Z",
+          "employeeId": "ceo",
+          "employeeName": "CEO",
+          "role": "Executive",
+          "body": "Review the customer communication strategy and tell me what should change before we send anything.",
+          "at": "2026-07-30T03:46:07.228Z",
+          "kind": "approval"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--owner-reply-2026-07-30T03:46:17.228Z",
+          "employeeId": "alex",
+          "employeeName": "Alex",
+          "role": "Calendar Manager",
+          "body": "I'll review the recommendation against schedule capacity and conflict risk. Unresolved timing issues create cascading delays for the rest of the plan. I'll give you one scheduling-aware recommendation with confidence and risks.",
+          "at": "2026-07-30T03:46:37.228Z",
+          "kind": "update"
+        },
+        {
+          "id": "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email--synth-2026-07-30T03:46:42.228Z",
+          "employeeId": "alex",
+          "employeeName": "Alex",
+          "role": "Calendar Manager",
+          "body": "Alex:\nRecommendation\nRecommend contacting inactive accounts today.\n\nReasoning\nAlex closed after 5 specialist notes. David's input shaped the call: I can prepare a proposal. David's input shaped the call: Document readiness is incomplete — the brief or proposal pack is not yet CEO-ready (internal signals only; live connector unavailable).\n\nExpected Impact\nFewer schedule collisions, protected focus time, and cleaner meeting-to-decision flow.\n\nRisks\nResidual risk if account priorities or timing shift before approval; re-check specialist notes if source signals change.\n\nMissing Information\nLive connector detail is unavailable, so recipient status, calendar holds, document versions, and CRM fields were not verified from source systems.\n\nConfidence\n92% — Confidence is 92% because 5 visible specialist contributions support the recommendation, while live systems remain unread.\n\nParticipants\nAlex, David, Emma\n\nEvidence\nEvidence is based on available internal and demo signals; connected email, calendar, document, and CRM data was not read.",
+          "at": "2026-07-30T03:46:42.228Z",
+          "kind": "request"
+        }
+      ],
+      "status": "questioned",
+      "ceoNote": "Review the customer communication strategy and tell me what should change before we send anything.",
+      "reassignedToEmployeeId": null,
+      "delayedUntil": null,
+      "signalIds": [
+        "sig-sarah-inactive_customer-2026-07-30",
+        "sig-david-expired_document-2026-07-30",
+        "sig-emma-unanswered_email-2026-07-30"
+      ],
+      "createdAt": "2026-07-30T00:54:38.960Z",
+      "updatedAt": "2026-07-30T03:46:07.228Z",
+      "conversationOwnerId": "alex",
+      "invitedEmployeeIds": [],
+      "suggestedInvitees": [
+        "mia"
+      ],
+      "priority": "Medium",
+      "urgency": "This Week",
+      "risks": "A suboptimal approval may create rework without immediate critical damage. Confidence is high but not absolute until approval and execution verification complete. Missing information: Live connector detail is missing or incomplete.",
+      "dependencies": [
+        "Qualify sales opportunity",
+        "Prepare proposal",
+        "Obtain CEO approval",
+        "Send customer outreach",
+        "Update CRM"
+      ],
+      "evidenceSummary": {
+        "sources": [
+          "internal_state",
+          "mock_demo_signals",
+          "ai_discussion"
+        ],
+        "statement": "Evidence is limited to internal company state, approval history, AI discussion, and mock/demo signals.",
+        "claimedLiveAnalysis": false,
+        "caveats": [
+          "Reasoning is based on internal state, previous approvals, AI discussion, and mock/demo signals — not live connector reads.",
+          "Live email, CRM data was not analyzed because connectors are disconnected.",
+          "No emails, calendars, CRM records, or documents were actually read from external systems."
+        ]
+      },
+      "expectedImpactStructured": {
+        "operational": "Medium",
+        "revenue": "Medium",
+        "customer": "Medium",
+        "productivity": "Medium",
+        "riskReduction": "Medium"
+      },
+      "confidenceReason": "Confidence 92% based on Severity 3/5; 3 participating employee(s); from continuous domain review; does not claim live connector reads."
+    },
+    {
+      "id": "rec-alex-sig-alex-overdue_meeting-2026-07-30",
+      "title": "Overdue meeting follow-ups",
+      "recommendation": "Recommend rescheduling tomorrow's meeting to clear the conflict.",
+      "reasoning": "Signal severity 3/5. 2 employees aligned in internal discussion. From continuous domain review. Category: risk.",
+      "confidence": 87,
+      "expectedImpact": "Reduce operational risk before it escalates.",
+      "category": "risk",
+      "leadEmployeeId": "alex",
+      "participatingEmployees": [
+        {
+          "id": "alex",
+          "name": "Alex",
+          "role": "Calendar Manager"
+        },
+        {
+          "id": "mia",
+          "name": "Mia",
+          "role": "Meeting Manager"
+        }
+      ],
+      "internalDiscussion": [
+        {
+          "id": "sig-alex-overdue_meeting-2026-07-30-disc-alex",
+          "employeeId": "alex",
+          "employeeName": "Alex",
+          "role": "Calendar Manager",
+          "body": "I detected a schedule conflict that needs a decision.",
+          "at": "2026-07-30T01:04:29.389Z",
+          "kind": "update"
+        },
+        {
+          "id": "sig-alex-overdue_meeting-2026-07-30-disc-mia",
+          "employeeId": "mia",
+          "employeeName": "Mia",
+          "role": "Meeting Manager",
+          "body": "I can prepare the meeting pack once we align.",
+          "at": "2026-07-30T01:04:59.389Z",
+          "kind": "handoff"
+        }
+      ],
+      "status": "approved",
+      "ceoNote": "Alex, before I approve this, I need a concise summary of your reasoning and the expected impact",
+      "reassignedToEmployeeId": null,
+      "delayedUntil": null,
+      "signalIds": [
+        "sig-alex-overdue_meeting-2026-07-30"
+      ],
+      "createdAt": "2026-07-30T00:54:38.960Z",
+      "updatedAt": "2026-07-30T01:04:39.592Z"
+    }
+  ],
+  "lastScanAt": "2026-07-30T07:49:01.217Z"
+}

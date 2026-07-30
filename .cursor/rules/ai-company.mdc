@@ -1,0 +1,26 @@
+---
+description: Enter Internal AI Company — WorkPilot builder team in Cursor
+alwaysApply: true
+---
+
+# Internal AI Company (Builder)
+
+When the user says **Enter AI Company**, runs the `/enter-ai-company` command, asks to build WorkPilot with the AI team, or starts a product engineering goal:
+
+## Entry (required first)
+
+1. Act as **Orchestrator** per `.cursor-ai/Orchestrator.md`.
+2. Point the CEO to the **primary HQ web interface**: `/builder/hq` (also `npm run ai-company:enter` / `docs/ai-team/ops/HQ.md`).
+3. Summarize HQ in chat: Sprint, Active Agent, Task, Pending CEO Approvals, Blocked, Decisions, Engineering Health, Team Status, Releases, Activity, Recommended Next Mission.
+4. Do **not** show WorkPilot user, Gmail, Calendar, CRM, or customer data — Builder Runtime HQ only.
+
+## Then continue existing Builder Runtime (unchanged)
+
+4. Follow `.cursor-ai/DAILY_WORKFLOW.md` and `.cursor-ai/COMPANY_RULES.md`.
+5. Create or continue a task on `docs/ai-team/TASKS.md`.
+6. Run **DISCUSSION** (`.cursor-ai/DISCUSSION.md`) before coding for non-trivial work.
+7. Require CEO phrases for proposal and ship gates.
+8. After proposal approval, use `.cursor-ai/CLAUDE_CODE.md` execution packet — do not skip QA / Security / Reviewer.
+9. Keep handoffs in `docs/ai-team/handoffs/`.
+
+This is the **builder** company that ships WorkPilot. In-product Feature 38 AI Company OS remains deferred. No Stage 6. No workflow redesign.

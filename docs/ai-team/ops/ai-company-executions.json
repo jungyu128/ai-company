@@ -1,0 +1,47 @@
+{
+  "executions": [
+    {
+      "id": "exec-1785373479599-p7uvkg",
+      "employeeId": "alex",
+      "employeeName": "Alex",
+      "missionId": null,
+      "system": "google_calendar",
+      "action": "calendar.create_event",
+      "requestedAction": "Overdue meeting follow-ups",
+      "preview": {
+        "summary": "Connector disconnected — cannot prepare execution",
+        "details": {
+          "reason": "Google Calendar disconnected. Enable AI_COMPANY_CALENDAR_ENABLED and configure Google OAuth refresh credentials."
+        },
+        "sourceSnapshot": {
+          "disconnected": true
+        }
+      },
+      "prepareParams": {
+        "guidance": "Recommend rescheduling tomorrow's meeting to clear the conflict.",
+        "body": "Recommend rescheduling tomorrow's meeting to clear the conflict.",
+        "note": "Signal severity 3/5. 2 employees aligned in internal discussion. From continuous domain review. Category: risk.",
+        "title": "Overdue meeting follow-ups"
+      },
+      "dataFingerprint": "7f52f32ce8fcda3f9983b0d839bff15a",
+      "status": "disconnected",
+      "approvalDecision": null,
+      "ceoNote": null,
+      "executionStatus": "skipped",
+      "externalReference": null,
+      "verificationResult": null,
+      "errorDetails": "Google Calendar disconnected. Enable AI_COMPANY_CALENDAR_ENABLED and configure Google OAuth refresh credentials.",
+      "idempotencyKey": "idem-disconnected-alex-2026-07-30T01:04:39.599Z",
+      "connection": {
+        "system": "google_calendar",
+        "connected": false,
+        "reason": "Google Calendar disconnected. Enable AI_COMPANY_CALENDAR_ENABLED and configure Google OAuth refresh credentials.",
+        "checkedAt": "2026-07-30T01:04:39.599Z"
+      },
+      "createdAt": "2026-07-30T01:04:39.599Z",
+      "updatedAt": "2026-07-30T01:04:39.599Z",
+      "approvedAt": null,
+      "executedAt": null
+    }
+  ]
+}

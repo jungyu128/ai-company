@@ -1,0 +1,344 @@
+{
+  "workdays": [
+    {
+      "id": "workday-2026-07-30",
+      "date": "2026-07-30",
+      "workspaceId": "default",
+      "status": "in_progress",
+      "detectedItems": [
+        {
+          "sourceKey": "recommendation:rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email-",
+          "source": "company",
+          "category": "mission",
+          "title": "Inactive customers to re-engage",
+          "detail": "Signal severity 3/5. 3 employees aligned in internal discussion. From continuous domain review. Category: risk.",
+          "urgency": 84,
+          "impact": 85,
+          "confidence": 92,
+          "deadline": null,
+          "assignedEmployeeId": "sarah",
+          "collaboratingEmployeeIds": [
+            "david",
+            "emma"
+          ],
+          "proposedAction": "Recommend contacting inactive accounts today.",
+          "requiresCeoApproval": true,
+          "relatedMissionId": null,
+          "relatedExecutionId": null,
+          "status": "detected",
+          "id": "wd-item-326a84398ce1e2f8b31d953b",
+          "fingerprint": "8a2dbb62b8a4d1f1a31cc830"
+        },
+        {
+          "sourceKey": "recommendation:rec-alex-sig-alex-overdue_meeting-2026-07-30",
+          "source": "company",
+          "category": "mission",
+          "title": "Overdue meeting follow-ups",
+          "detail": "Signal severity 3/5. 2 employees aligned in internal discussion. From continuous domain review. Category: risk.",
+          "urgency": 81,
+          "impact": 82,
+          "confidence": 87,
+          "deadline": null,
+          "assignedEmployeeId": "alex",
+          "collaboratingEmployeeIds": [
+            "mia",
+            "alex"
+          ],
+          "proposedAction": "Recommend rescheduling tomorrow's meeting to clear the conflict.",
+          "requiresCeoApproval": true,
+          "relatedMissionId": null,
+          "relatedExecutionId": null,
+          "status": "detected",
+          "id": "wd-item-1a2a4077d563ecf6df71d6c2",
+          "fingerprint": "e27cb08633024065a13a0b80"
+        },
+        {
+          "sourceKey": "integration:gmail",
+          "source": "company",
+          "category": "integration",
+          "title": "gmail disconnected",
+          "detail": "Gmail disconnected. Connect Google OAuth credentials in settings.",
+          "urgency": 55,
+          "impact": 60,
+          "confidence": 95,
+          "deadline": null,
+          "assignedEmployeeId": "emma",
+          "collaboratingEmployeeIds": [],
+          "proposedAction": "Reconnect the integration before external writes.",
+          "requiresCeoApproval": false,
+          "relatedMissionId": null,
+          "relatedExecutionId": null,
+          "status": "disconnected",
+          "id": "wd-item-334e04e51c142046caee1b14",
+          "fingerprint": "8db7efad7ed345dd7b97ab01"
+        },
+        {
+          "sourceKey": "integration:google_calendar",
+          "source": "company",
+          "category": "integration",
+          "title": "google calendar disconnected",
+          "detail": "Google Calendar disconnected. Connect Google OAuth credentials in settings.",
+          "urgency": 55,
+          "impact": 60,
+          "confidence": 95,
+          "deadline": null,
+          "assignedEmployeeId": "alex",
+          "collaboratingEmployeeIds": [],
+          "proposedAction": "Reconnect the integration before external writes.",
+          "requiresCeoApproval": false,
+          "relatedMissionId": null,
+          "relatedExecutionId": null,
+          "status": "disconnected",
+          "id": "wd-item-0db5b07d9e8074763b9bc44e",
+          "fingerprint": "335652f40db712b4e44c01d6"
+        },
+        {
+          "sourceKey": "integration:google_drive",
+          "source": "company",
+          "category": "integration",
+          "title": "google drive disconnected",
+          "detail": "Google Drive disconnected. Connect Google OAuth credentials in settings.",
+          "urgency": 55,
+          "impact": 60,
+          "confidence": 95,
+          "deadline": null,
+          "assignedEmployeeId": "david",
+          "collaboratingEmployeeIds": [],
+          "proposedAction": "Reconnect the integration before external writes.",
+          "requiresCeoApproval": false,
+          "relatedMissionId": null,
+          "relatedExecutionId": null,
+          "status": "disconnected",
+          "id": "wd-item-1f62d3200e964f3b1379ab11",
+          "fingerprint": "ae799195e185bdfa6c1f7c23"
+        },
+        {
+          "sourceKey": "integration:crm",
+          "source": "company",
+          "category": "integration",
+          "title": "crm disconnected",
+          "detail": "CRM live connector deferred (v5 Phase 5). Interface + mock adapters are available; connect a CRM provider in a later phase.",
+          "urgency": 55,
+          "impact": 60,
+          "confidence": 95,
+          "deadline": null,
+          "assignedEmployeeId": "sarah",
+          "collaboratingEmployeeIds": [],
+          "proposedAction": "Reconnect the integration before external writes.",
+          "requiresCeoApproval": false,
+          "relatedMissionId": null,
+          "relatedExecutionId": null,
+          "status": "disconnected",
+          "id": "wd-item-9e062b5b41d99a7062f654ac",
+          "fingerprint": "fa9af8529b67a75c56891946"
+        }
+      ],
+      "plan": [
+        {
+          "id": "wd-item-326a84398ce1e2f8b31d953b",
+          "title": "Inactive customers to re-engage",
+          "source": "company",
+          "sourceKey": "recommendation:rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email-",
+          "assignedEmployeeId": "sarah",
+          "assignedEmployeeName": "Sarah",
+          "collaboratingEmployeeIds": [
+            "david",
+            "emma"
+          ],
+          "collaboratingEmployeeNames": [
+            "David",
+            "Emma"
+          ],
+          "priority": "P0",
+          "reason": "Signal severity 3/5. 3 employees aligned in internal discussion. From continuous domain review. Category: risk.",
+          "deadline": null,
+          "confidence": 92,
+          "proposedAction": "Recommend contacting inactive accounts today.",
+          "requiresCeoApproval": true,
+          "relatedMissionId": null,
+          "relatedExecutionId": null,
+          "status": "assigned"
+        },
+        {
+          "id": "wd-item-1a2a4077d563ecf6df71d6c2",
+          "title": "Overdue meeting follow-ups",
+          "source": "company",
+          "sourceKey": "recommendation:rec-alex-sig-alex-overdue_meeting-2026-07-30",
+          "assignedEmployeeId": "alex",
+          "assignedEmployeeName": "Alex",
+          "collaboratingEmployeeIds": [
+            "mia",
+            "alex"
+          ],
+          "collaboratingEmployeeNames": [
+            "Mia",
+            "Alex"
+          ],
+          "priority": "P1",
+          "reason": "Signal severity 3/5. 2 employees aligned in internal discussion. From continuous domain review. Category: risk.",
+          "deadline": null,
+          "confidence": 87,
+          "proposedAction": "Recommend rescheduling tomorrow's meeting to clear the conflict.",
+          "requiresCeoApproval": true,
+          "relatedMissionId": null,
+          "relatedExecutionId": null,
+          "status": "assigned"
+        },
+        {
+          "id": "wd-item-334e04e51c142046caee1b14",
+          "title": "gmail disconnected",
+          "source": "company",
+          "sourceKey": "integration:gmail",
+          "assignedEmployeeId": "emma",
+          "assignedEmployeeName": "Emma",
+          "collaboratingEmployeeIds": [],
+          "collaboratingEmployeeNames": [],
+          "priority": "P2",
+          "reason": "Gmail disconnected. Connect Google OAuth credentials in settings.",
+          "deadline": null,
+          "confidence": 95,
+          "proposedAction": "Reconnect the integration before external writes.",
+          "requiresCeoApproval": false,
+          "relatedMissionId": null,
+          "relatedExecutionId": null,
+          "status": "disconnected"
+        },
+        {
+          "id": "wd-item-0db5b07d9e8074763b9bc44e",
+          "title": "google calendar disconnected",
+          "source": "company",
+          "sourceKey": "integration:google_calendar",
+          "assignedEmployeeId": "alex",
+          "assignedEmployeeName": "Alex",
+          "collaboratingEmployeeIds": [],
+          "collaboratingEmployeeNames": [],
+          "priority": "P2",
+          "reason": "Google Calendar disconnected. Connect Google OAuth credentials in settings.",
+          "deadline": null,
+          "confidence": 95,
+          "proposedAction": "Reconnect the integration before external writes.",
+          "requiresCeoApproval": false,
+          "relatedMissionId": null,
+          "relatedExecutionId": null,
+          "status": "disconnected"
+        },
+        {
+          "id": "wd-item-1f62d3200e964f3b1379ab11",
+          "title": "google drive disconnected",
+          "source": "company",
+          "sourceKey": "integration:google_drive",
+          "assignedEmployeeId": "david",
+          "assignedEmployeeName": "David",
+          "collaboratingEmployeeIds": [],
+          "collaboratingEmployeeNames": [],
+          "priority": "P2",
+          "reason": "Google Drive disconnected. Connect Google OAuth credentials in settings.",
+          "deadline": null,
+          "confidence": 95,
+          "proposedAction": "Reconnect the integration before external writes.",
+          "requiresCeoApproval": false,
+          "relatedMissionId": null,
+          "relatedExecutionId": null,
+          "status": "disconnected"
+        },
+        {
+          "id": "wd-item-9e062b5b41d99a7062f654ac",
+          "title": "crm disconnected",
+          "source": "company",
+          "sourceKey": "integration:crm",
+          "assignedEmployeeId": "sarah",
+          "assignedEmployeeName": "Sarah",
+          "collaboratingEmployeeIds": [],
+          "collaboratingEmployeeNames": [],
+          "priority": "P2",
+          "reason": "CRM live connector deferred (v5 Phase 5). Interface + mock adapters are available; connect a CRM provider in a later phase.",
+          "deadline": null,
+          "confidence": 95,
+          "proposedAction": "Reconnect the integration before external writes.",
+          "requiresCeoApproval": false,
+          "relatedMissionId": null,
+          "relatedExecutionId": null,
+          "status": "disconnected"
+        }
+      ],
+      "morningBrief": {
+        "generatedAt": "2026-07-30T01:00:00.544Z",
+        "topPriorities": [
+          {
+            "title": "Inactive customers to re-engage",
+            "reason": "Signal severity 3/5. 3 employees aligned in internal discussion. From continuous domain review. Category: risk.",
+            "confidence": 92,
+            "assignedEmployeeName": "Sarah"
+          },
+          {
+            "title": "Overdue meeting follow-ups",
+            "reason": "Signal severity 3/5. 2 employees aligned in internal discussion. From continuous domain review. Category: risk.",
+            "confidence": 87,
+            "assignedEmployeeName": "Alex"
+          },
+          {
+            "title": "gmail disconnected",
+            "reason": "Gmail disconnected. Connect Google OAuth credentials in settings.",
+            "confidence": 95,
+            "assignedEmployeeName": "Emma"
+          },
+          {
+            "title": "google calendar disconnected",
+            "reason": "Google Calendar disconnected. Connect Google OAuth credentials in settings.",
+            "confidence": 95,
+            "assignedEmployeeName": "Alex"
+          },
+          {
+            "title": "google drive disconnected",
+            "reason": "Google Drive disconnected. Connect Google OAuth credentials in settings.",
+            "confidence": 95,
+            "assignedEmployeeName": "David"
+          }
+        ],
+        "urgentEmails": [],
+        "unansweredConversations": [],
+        "calendarSchedule": [],
+        "calendarConflicts": [],
+        "meetingsNeedingPrep": [],
+        "crmFollowUps": [],
+        "pipelineRisks": [],
+        "documentTasks": [],
+        "overdueMissions": [
+          "Overdue meeting follow-ups"
+        ],
+        "pendingApprovals": [],
+        "disconnectedIntegrations": [
+          "gmail disconnected",
+          "google calendar disconnected",
+          "google drive disconnected",
+          "crm disconnected"
+        ],
+        "recommendedFirstAction": {
+          "title": "Inactive customers to re-engage",
+          "reason": "Signal severity 3/5. 3 employees aligned in internal discussion. From continuous domain review. Category: risk.",
+          "confidence": 92,
+          "assignedEmployeeName": "Sarah"
+        },
+        "unavailableSources": [
+          "gmail",
+          "google calendar",
+          "google drive",
+          "crm"
+        ],
+        "summary": "5 top priorities · no pending approvals · 4 sources unavailable (no fabricated data) · start with Inactive customers to re-engage (Sarah)"
+      },
+      "endOfDayReport": null,
+      "recommendationIds": [
+        "rec-alex-sig-alex-overdue_meeting-2026-07-30",
+        "rec-sarah-sig-david-expired_document-2026-07-30-sig-emma-unanswered_email-"
+      ],
+      "approvalIds": [],
+      "executionIds": [],
+      "dataFingerprint": "0cc247e1118765d6f5b1de70",
+      "startedAt": "2026-07-30T01:00:00.544Z",
+      "completedAt": null,
+      "createdAt": "2026-07-30T01:00:00.544Z",
+      "updatedAt": "2026-07-30T01:00:00.544Z"
+    }
+  ]
+}

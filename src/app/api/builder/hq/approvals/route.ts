@@ -1,0 +1,143 @@
+import { NextResponse } from "next/server";
+import { getAuthContext, unauthorized } from "@/lib/auth";
+import { decideApproval, listApprovalCenter } from "@/services/builder/approval.service";
+import {
+  ensureHqAccess,
+  resolveWorkspaceIdFromRequest,
+} from "@/services/builder/workspace/workspace.service";
+import { logOpsEvent } from "@/services/builder/hardening/ops-log";
+import { publicApiError } from "@/services/builder/hardening/redaction";
+
+export const runtime = "nodejs";
+
+/**
+ * GET /api/builder/hq/approvals — pending CEO Approval Center items.
+ */
+export async function GET(request: Request) {
+  const auth = await getAuthContext();
+  if (!auth) return unauthorized();
+  const workspaceId = resolveWorkspaceIdFromRequest(request);
+  const access = ensureHqAccess({ auth, workspaceId });
+  if (!access.ok) {
+    return NextResponse.json(
+      { ok: false, ...publicApiError(access.code, access.message) },
+      { status: access.status }
+    );
+  }
+
+  return NextResponse.json({
+    ok: true,
+    approvals: listApprovalCenter(process.cwd(), access.ctx.workspaceId),
+  });
+}
+
+/**
+ * POST /api/builder/hq/approvals — approve | reject | request_changes.
+ */
+export async function POST(request: Request) {
+  const auth = await getAuthContext();
+  if (!auth) return unauthorized();
+  const workspaceId = resolveWorkspaceIdFromRequest(request);
+  const access = ensureHqAccess({
+    auth,
+    workspaceId,
+    permission: "approvals.decide",
+  });
+  if (!access.ok) {
+    logOpsEvent({
+      outcome: "denied",
+      workspaceId,
+      action: "approval.decide",
+      code: access.code,
+    });
+    return NextResponse.json(
+      { ok: false, ...publicApiError(access.code, access.message) },
+      { status: access.status }
+    );
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { ok: false, code: "INVALID", error: "Expected JSON body" },
+      { status: 400 }
+    );
+  }
+
+  const missionId =
+    body && typeof body === "object" && "missionId" in body
+      ? (body as { missionId: unknown }).missionId
+      : undefined;
+  const decision =
+    body && typeof body === "object" && "decision" in body
+      ? (body as { decision: unknown }).decision
+      : undefined;
+  const note =
+    body && typeof body === "object" && "note" in body
+      ? (body as { note: unknown }).note
+      : undefined;
+
+  if (typeof missionId !== "string" || !missionId.trim()) {
+    return NextResponse.json(
+      { ok: false, code: "INVALID", error: "missionId must be a string" },
+      { status: 400 }
+    );
+  }
+
+  if (
+    decision !== "approve" &&
+    decision !== "reject" &&
+    decision !== "request_changes"
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "INVALID",
+        error: "decision must be approve | reject | request_changes",
+      },
+      { status: 400 }
+    );
+  }
+
+  const started = Date.now();
+  const result = await decideApproval({
+    missionId: missionId.trim(),
+    decision,
+    note: typeof note === "string" ? note : null,
+    workspaceId: access.ctx.workspaceId,
+    actor: {
+      userId: access.ctx.userId,
+      displayName: access.ctx.displayName,
+      role: access.ctx.role,
+    },
+  });
+
+  if (!result.ok) {
+    logOpsEvent({
+      outcome: "error",
+      workspaceId: access.ctx.workspaceId,
+      action: `approval.${decision}`,
+      code: result.code,
+      durationMs: Date.now() - started,
+    });
+    return NextResponse.json(
+      { ok: false, ...publicApiError(result.code, result.message) },
+      { status: result.status }
+    );
+  }
+
+  logOpsEvent({
+    outcome: "ok",
+    workspaceId: access.ctx.workspaceId,
+    action: `approval.${decision}`,
+    durationMs: Date.now() - started,
+  });
+
+  return NextResponse.json({
+    ok: true,
+    approval: result.item,
+    execution: result.execution,
+  });
+}

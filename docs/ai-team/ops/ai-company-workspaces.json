@@ -1,0 +1,12 @@
+{
+  "workspaces": [
+    {
+      "id": "default",
+      "name": "Primary AI Company",
+      "organizationKey": "primary",
+      "createdAt": "2026-07-30T00:54:38.918Z",
+      "updatedAt": "2026-07-30T00:54:38.918Z",
+      "createdByUserId": "cmrvhxzyb0004jr041422o7i4"
+    }
+  ]
+}
