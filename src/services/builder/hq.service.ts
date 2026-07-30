@@ -10,6 +10,7 @@
 
 import { loadAiCompanyHqFromDisk } from "../../../docs/ai-team/runtime/lib/runtime-hq-fs.mjs";
 import { formatHqDateTimeDisplay } from "./format-hq-display";
+import "./storage"; // register storage bridge for runtime-hq-fs.mjs
 
 export type BuilderCeoAdvisor = {
   generatedAt: string;

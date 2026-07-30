@@ -1,13 +1,13 @@
 /**
  * Persist company memories (adapter layer).
- * Scoped by workspaceId (default keeps legacy path).
+ * Storage-backed (no project fs writes).
  */
 
-import fs from "node:fs";
 import path from "node:path";
 import type { CompanyMemory, MemoryStoreShape } from "./types";
 import { opsRel } from "../workspace/paths";
 import { DEFAULT_WORKSPACE_ID } from "../workspace/types";
+import { readJson, writeJson } from "../storage";
 
 export const MEMORY_FILE = "ai-company-memory.json";
 export const MEMORY_REL = opsRel(MEMORY_FILE, DEFAULT_WORKSPACE_ID);
@@ -21,35 +21,17 @@ function fileFor(workspaceId: string) {
 }
 
 function readStore(root: string, workspaceId: string): MemoryStoreShape {
-  try {
-    const raw = fs.readFileSync(path.join(root, fileFor(workspaceId)), "utf8");
-    const parsed = JSON.parse(raw) as MemoryStoreShape;
-    if (!parsed || !Array.isArray(parsed.memories)) return emptyStore();
-    return {
-      memories: parsed.memories,
-      lastLearnedAt: parsed.lastLearnedAt ?? null,
-      lastWorkdayId: parsed.lastWorkdayId ?? null,
-    };
-  } catch {
-    return emptyStore();
-  }
+  const parsed = readJson<MemoryStoreShape>(root, fileFor(workspaceId), emptyStore());
+  if (!parsed || !Array.isArray(parsed.memories)) return emptyStore();
+  return {
+    memories: parsed.memories,
+    lastLearnedAt: parsed.lastLearnedAt ?? null,
+    lastWorkdayId: parsed.lastWorkdayId ?? null,
+  };
 }
 
 function writeStore(root: string, workspaceId: string, store: MemoryStoreShape) {
-  const filePath = path.join(root, fileFor(workspaceId));
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  const tmp = `${filePath}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(store, null, 2) + "\n", "utf8");
-  try {
-    fs.renameSync(tmp, filePath);
-  } catch {
-    fs.copyFileSync(tmp, filePath);
-    try {
-      fs.unlinkSync(tmp);
-    } catch {
-      /* ignore */
-    }
-  }
+  writeJson(root, fileFor(workspaceId), store);
 }
 
 export function listMemories(

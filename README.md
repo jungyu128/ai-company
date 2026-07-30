@@ -40,3 +40,14 @@ Safety: no auto-merge, no direct pushes to main, writes require `ownerApproved: 
 ## Auth
 
 Owner-token cookie/header gate. Set `AI_COMPANY_DEV_BYPASS_AUTH=1` for local development only.
+
+## Runtime storage (Vercel-safe)
+
+AI Company **never writes** to `docs/` or the project filesystem.
+
+| Backend | When |
+|---------|------|
+| Memory | Default (dev + Vercel fallback) |
+| Vercel KV write-through | When `KV_REST_API_URL` + `KV_REST_API_TOKEN` are set |
+
+Packaged markdown under `docs/ai-team` may be **read** as seed data only.

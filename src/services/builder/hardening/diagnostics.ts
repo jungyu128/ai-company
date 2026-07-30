@@ -2,14 +2,13 @@
  * Production health diagnostics — status only, never secret values.
  */
 
-import fs from "node:fs";
-import path from "node:path";
 import { isInternalAiCompanyEnabled } from "../internal-ai-company";
 import { getConnectionStatusesSync } from "../execution/connection-status";
 import { allowTestConnectors, getBetaSafetyGuarantees } from "../onboarding/beta-safety";
-import { opsRel } from "../workspace/paths";
 import { DEFAULT_WORKSPACE_ID } from "../workspace/types";
 import { getWorkspaceApprovalPolicy } from "../onboarding/onboarding.service";
+import { getStorageStatus, setText, getText } from "../storage";
+import { opsRel } from "../workspace/paths";
 
 export type DiagnosticStatus = "pass" | "warning" | "fail";
 
@@ -27,15 +26,18 @@ export function runProductionHealthDiagnostics(input?: {
   const workspaceId = input?.workspaceId ?? DEFAULT_WORKSPACE_ID;
   const out: HealthDiagnostic[] = [];
 
-  // Storage availability
+  // Storage availability (memory / KV — never project filesystem writes)
   try {
-    const dir = path.join(root, path.dirname(opsRel("ai-company-audit.json", workspaceId)));
-    fs.mkdirSync(dir, { recursive: true });
-    fs.accessSync(dir, fs.constants.W_OK);
+    const status = getStorageStatus();
+    const probeRel = opsRel("ai-company-audit.json.__probe__", workspaceId);
+    setText(root, probeRel, "ok");
+    const ok = status.writable && getText(root, probeRel) === "ok";
     out.push({
       key: "storage.availability",
-      status: "pass",
-      explanation: "Workspace storage is writable.",
+      status: ok ? "pass" : "fail",
+      explanation: ok
+        ? `Workspace storage is writable (${status.backend}).`
+        : "Workspace storage is not writable.",
     });
   } catch {
     out.push({

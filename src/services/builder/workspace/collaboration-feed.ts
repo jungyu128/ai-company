@@ -1,5 +1,6 @@
 /**
  * Activity timeline, notifications, audit, and mission comments.
+ * Storage-backed (no project fs writes).
  */
 
 import {
@@ -48,12 +49,12 @@ export function appendActivity(
     id: newId("act"),
     createdAt: input.createdAt ?? nowIso(),
   };
-  const store = readJsonFile<ActivityStore>(activityPath(root, input.workspaceId), {
+  const store = readJsonFile<ActivityStore>(root, activityPath(root, input.workspaceId), {
     items: [],
   });
   store.items.unshift(item);
   store.items = store.items.slice(0, 500);
-  writeJsonFile(activityPath(root, input.workspaceId), store);
+  writeJsonFile(root, activityPath(root, input.workspaceId), store);
   return item;
 }
 
@@ -62,7 +63,7 @@ export function listActivity(
   repoRoot = process.cwd(),
   limit = 80
 ): ActivityItem[] {
-  return readJsonFile<ActivityStore>(activityPath(repoRoot, workspaceId), {
+  return readJsonFile<ActivityStore>(repoRoot, activityPath(repoRoot, workspaceId), {
     items: [],
   }).items.slice(0, limit);
 }
@@ -81,12 +82,13 @@ export function createNotification(
     createdAt: input.createdAt ?? nowIso(),
   };
   const store = readJsonFile<NotificationStore>(
+    repoRoot,
     notificationsPath(repoRoot, input.workspaceId),
     { items: [] }
   );
   store.items.unshift(note);
   store.items = store.items.slice(0, 300);
-  writeJsonFile(notificationsPath(repoRoot, input.workspaceId), store);
+  writeJsonFile(repoRoot, notificationsPath(repoRoot, input.workspaceId), store);
   return note;
 }
 
@@ -95,7 +97,7 @@ export function listNotifications(
   options?: { userId?: string | null; repoRoot?: string; limit?: number }
 ): WorkspaceNotification[] {
   const root = options?.repoRoot ?? process.cwd();
-  let items = readJsonFile<NotificationStore>(notificationsPath(root, workspaceId), {
+  let items = readJsonFile<NotificationStore>(root, notificationsPath(root, workspaceId), {
     items: [],
   }).items;
   if (options?.userId) {
@@ -110,13 +112,14 @@ export function markNotificationRead(
   repoRoot = process.cwd()
 ): WorkspaceNotification | null {
   const store = readJsonFile<NotificationStore>(
+    repoRoot,
     notificationsPath(repoRoot, workspaceId),
     { items: [] }
   );
   const idx = store.items.findIndex((n) => n.id === notificationId);
   if (idx < 0) return null;
   store.items[idx] = { ...store.items[idx], read: true };
-  writeJsonFile(notificationsPath(repoRoot, workspaceId), store);
+  writeJsonFile(repoRoot, notificationsPath(repoRoot, workspaceId), store);
   return store.items[idx];
 }
 
@@ -129,12 +132,12 @@ export function appendAudit(
     id: newId("aud"),
     createdAt: input.createdAt ?? nowIso(),
   };
-  const store = readJsonFile<AuditStore>(auditPath(repoRoot, input.workspaceId), {
+  const store = readJsonFile<AuditStore>(repoRoot, auditPath(repoRoot, input.workspaceId), {
     entries: [],
   });
   store.entries.unshift(entry);
   store.entries = store.entries.slice(0, 800);
-  writeJsonFile(auditPath(repoRoot, input.workspaceId), store);
+  writeJsonFile(repoRoot, auditPath(repoRoot, input.workspaceId), store);
   return entry;
 }
 
@@ -143,7 +146,7 @@ export function listAudit(
   repoRoot = process.cwd(),
   limit = 100
 ): WorkspaceAuditEntry[] {
-  return readJsonFile<AuditStore>(auditPath(repoRoot, workspaceId), {
+  return readJsonFile<AuditStore>(repoRoot, auditPath(repoRoot, workspaceId), {
     entries: [],
   }).entries.slice(0, limit);
 }
@@ -157,12 +160,12 @@ export function addMissionComment(
     id: newId("cmt"),
     createdAt: input.createdAt ?? nowIso(),
   };
-  const store = readJsonFile<CommentStore>(commentsPath(repoRoot, input.workspaceId), {
+  const store = readJsonFile<CommentStore>(repoRoot, commentsPath(repoRoot, input.workspaceId), {
     comments: [],
   });
   store.comments.unshift(comment);
   store.comments = store.comments.slice(0, 400);
-  writeJsonFile(commentsPath(repoRoot, input.workspaceId), store);
+  writeJsonFile(repoRoot, commentsPath(repoRoot, input.workspaceId), store);
   return comment;
 }
 
@@ -171,7 +174,7 @@ export function listMissionComments(
   missionId: string,
   repoRoot = process.cwd()
 ): MissionComment[] {
-  return readJsonFile<CommentStore>(commentsPath(repoRoot, workspaceId), {
+  return readJsonFile<CommentStore>(repoRoot, commentsPath(repoRoot, workspaceId), {
     comments: [],
   }).comments.filter((c) => c.missionId === missionId);
 }

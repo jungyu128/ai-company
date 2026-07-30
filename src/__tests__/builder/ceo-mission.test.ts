@@ -10,6 +10,7 @@ import {
 import { generateMissionPlan } from "@/services/builder/mission-plan";
 import { isInternalAiCompanyEnabled } from "@/services/builder/internal-ai-company";
 import { createCeoMission } from "@/services/builder/mission.service";
+import { getText } from "@/services/builder/storage";
 
 describe("CEO Mission validation", () => {
   it("rejects empty mission", () => {
@@ -177,24 +178,20 @@ describe("createCeoMission FS", () => {
     assert.match(result.approvalPhrase, /proposal only/);
     assert.ok(result.plan.steps.length > 0);
 
-    const taskFile = path.join(tmp, "docs/ai-team/tasks", `${result.taskId}.md`);
-    assert.equal(fs.existsSync(taskFile), true);
-    const body = fs.readFileSync(taskFile, "utf8");
+    const taskRel = `docs/ai-team/tasks/${result.taskId}.md`;
+    const body = getText(tmp, taskRel) ?? "";
     assert.match(body, /Mission Plan \(pre-execution\)/);
     assert.match(body, /WAITING_CEO/);
     assert.match(body, /proposal/);
 
-    const board = fs.readFileSync(path.join(tmp, "docs/ai-team/TASKS.md"), "utf8");
+    const board = getText(tmp, "docs/ai-team/TASKS.md") ?? "";
     assert.match(board, new RegExp(result.taskId));
     assert.match(board, /WAITING_CEO/);
 
-    const sprints = fs.readFileSync(path.join(tmp, "docs/ai-team/SPRINTS.md"), "utf8");
+    const sprints = getText(tmp, "docs/ai-team/SPRINTS.md") ?? "";
     assert.match(sprints, new RegExp(result.taskId));
 
-    const audit = fs.readFileSync(
-      path.join(tmp, "docs/ai-team/runtime/audit/AUDIT.log.md"),
-      "utf8"
-    );
+    const audit = getText(tmp, "docs/ai-team/runtime/audit/AUDIT.log.md") ?? "";
     assert.match(audit, /CEO_MISSION_CREATED/);
     assert.match(audit, new RegExp(result.taskId));
 

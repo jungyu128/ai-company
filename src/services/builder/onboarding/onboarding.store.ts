@@ -48,6 +48,7 @@ export function getOnboardingState(
   repoRoot = process.cwd()
 ): OnboardingState | null {
   const raw = readJsonFile<OnboardingState | null>(
+    repoRoot,
     pathFor(repoRoot, workspaceId),
     null
   );
@@ -65,7 +66,7 @@ export function saveOnboardingState(
     betaSafetyMode: true,
     updatedAt: nowIso(),
   });
-  writeJsonFile(pathFor(repoRoot, next.workspaceId), next);
+  writeJsonFile(repoRoot, pathFor(repoRoot, next.workspaceId), next);
   return next;
 }
 

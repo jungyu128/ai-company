@@ -1,13 +1,13 @@
 /**
  * Persist learning outcomes for the AI Company.
- * Scoped by workspaceId (default keeps legacy path).
+ * Storage-backed (no project fs writes).
  */
 
-import fs from "node:fs";
 import path from "node:path";
 import type { MissionOutcomeRecord } from "./learning.logic";
 import { opsRel } from "./workspace/paths";
 import { DEFAULT_WORKSPACE_ID } from "./workspace/types";
+import { readJson, writeJson } from "./storage";
 
 export const LEARNING_FILE = "ai-company-learning.json";
 export const LEARNING_REL = opsRel(LEARNING_FILE, DEFAULT_WORKSPACE_ID);
@@ -23,31 +23,13 @@ function fileFor(workspaceId: string) {
 }
 
 function readStore(root: string, workspaceId: string): StoreShape {
-  try {
-    const raw = fs.readFileSync(path.join(root, fileFor(workspaceId)), "utf8");
-    const parsed = JSON.parse(raw) as StoreShape;
-    if (!parsed || !Array.isArray(parsed.outcomes)) return emptyStore();
-    return parsed;
-  } catch {
-    return emptyStore();
-  }
+  const parsed = readJson<StoreShape>(root, fileFor(workspaceId), emptyStore());
+  if (!parsed || !Array.isArray(parsed.outcomes)) return emptyStore();
+  return parsed;
 }
 
 function writeStore(root: string, workspaceId: string, store: StoreShape) {
-  const filePath = path.join(root, fileFor(workspaceId));
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  const tmp = `${filePath}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(store, null, 2) + "\n", "utf8");
-  try {
-    fs.renameSync(tmp, filePath);
-  } catch {
-    fs.copyFileSync(tmp, filePath);
-    try {
-      fs.unlinkSync(tmp);
-    } catch {
-      /* ignore */
-    }
-  }
+  writeJson(root, fileFor(workspaceId), store);
 }
 
 export function listMissionOutcomes(

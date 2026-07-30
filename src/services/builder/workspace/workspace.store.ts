@@ -27,7 +27,9 @@ function membersPath(repoRoot: string) {
 }
 
 export function listWorkspaces(repoRoot = process.cwd()): AiCompanyWorkspace[] {
-  return readJsonFile<WorkspaceStore>(workspacesPath(repoRoot), { workspaces: [] }).workspaces;
+  return readJsonFile<WorkspaceStore>(repoRoot, workspacesPath(repoRoot), {
+    workspaces: [],
+  }).workspaces;
 }
 
 export function listWorkspacesForUser(
@@ -49,11 +51,13 @@ export function upsertWorkspace(
   workspace: AiCompanyWorkspace,
   repoRoot = process.cwd()
 ): AiCompanyWorkspace {
-  const store = readJsonFile<WorkspaceStore>(workspacesPath(repoRoot), { workspaces: [] });
+  const store = readJsonFile<WorkspaceStore>(repoRoot, workspacesPath(repoRoot), {
+    workspaces: [],
+  });
   const idx = store.workspaces.findIndex((w) => w.id === workspace.id);
   if (idx >= 0) store.workspaces[idx] = workspace;
   else store.workspaces.unshift(workspace);
-  writeJsonFile(workspacesPath(repoRoot), store);
+  writeJsonFile(repoRoot, workspacesPath(repoRoot), store);
   return workspace;
 }
 
@@ -61,7 +65,7 @@ export function listMembers(
   workspaceId: string,
   repoRoot = process.cwd()
 ): WorkspaceMember[] {
-  return readJsonFile<MemberStore>(membersPath(repoRoot), { members: [] }).members.filter(
+  return readJsonFile<MemberStore>(repoRoot, membersPath(repoRoot), { members: [] }).members.filter(
     (m) => m.workspaceId === workspaceId
   );
 }
@@ -80,13 +84,13 @@ export function upsertMember(
   member: WorkspaceMember,
   repoRoot = process.cwd()
 ): WorkspaceMember {
-  const store = readJsonFile<MemberStore>(membersPath(repoRoot), { members: [] });
+  const store = readJsonFile<MemberStore>(repoRoot, membersPath(repoRoot), { members: [] });
   const idx = store.members.findIndex(
     (m) => m.workspaceId === member.workspaceId && m.userId === member.userId
   );
   if (idx >= 0) store.members[idx] = member;
   else store.members.unshift(member);
-  writeJsonFile(membersPath(repoRoot), store);
+  writeJsonFile(repoRoot, membersPath(repoRoot), store);
   return member;
 }
 

@@ -4,16 +4,17 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
-  AI_COMPANY_EMPLOYEES,
-  matchEmployeeIdForText,
-  getEmployeeDefinition,
-} from "@/services/builder/ai-company-employees";
-import {
   createCeoMission,
   reconcileTaskIndex,
   TASK_BOARD_REL,
   TASK_DETAILS_DIR_REL,
 } from "@/services/builder/mission.service";
+import { getText, setText } from "@/services/builder/storage";
+import {
+  AI_COMPANY_EMPLOYEES,
+  matchEmployeeIdForText,
+  getEmployeeDefinition,
+} from "@/services/builder/ai-company-employees";
 
 describe("AI Company employee catalog", () => {
   it("includes the eight named employees", () => {
@@ -154,10 +155,10 @@ describe("mission write consistency", () => {
     );
     assert.equal(result.ok, true);
     if (!result.ok) return;
-    const board = fs.readFileSync(path.join(tmp, TASK_BOARD_REL), "utf8");
+    const board = getText(tmp, TASK_BOARD_REL) ?? "";
     assert.match(board, new RegExp(result.taskId));
     assert.match(board, /WAITING_CEO/);
-    assert.equal(fs.existsSync(path.join(tmp, TASK_DETAILS_DIR_REL, `${result.taskId}.md`)), true);
+    assert.equal(getText(tmp, `${TASK_DETAILS_DIR_REL}/${result.taskId}.md`) != null, true);
     assert.ok(result.collaboration);
     assert.equal(result.collaboration.leadEmployeeId, "alex");
     assert.equal(result.collaboration.approvalStatus, "pending");
@@ -178,10 +179,10 @@ describe("mission write consistency", () => {
 
   it("reconcile indexes an orphan detail without duplicating", () => {
     const orphanId = "TASK-2026-07-29-099";
-    fs.writeFileSync(
-      path.join(tmp, TASK_DETAILS_DIR_REL, `${orphanId}.md`),
-      `# ${orphanId}\n\n| Field | Value |\n|-------|--------|\n| **Title** | Orphan calendar mission |\n| **Created** | 2026-07-29 |\n`,
-      "utf8"
+    setText(
+      tmp,
+      `${TASK_DETAILS_DIR_REL}/${orphanId}.md`,
+      `# ${orphanId}\n\n| Field | Value |\n|-------|--------|\n| **Title** | Orphan calendar mission |\n| **Created** | 2026-07-29 |\n`
     );
     const once = reconcileTaskIndex(orphanId, { repoRoot: tmp });
     assert.equal(once.ok, true);
@@ -189,7 +190,7 @@ describe("mission write consistency", () => {
     const twice = reconcileTaskIndex(orphanId, { repoRoot: tmp });
     assert.equal(twice.ok, true);
     if (twice.ok) assert.deepEqual(twice.updated, []);
-    const board = fs.readFileSync(path.join(tmp, TASK_BOARD_REL), "utf8");
+    const board = getText(tmp, TASK_BOARD_REL) ?? "";
     const rowHits = board.split(`| [${orphanId}]`).length - 1;
     assert.equal(rowHits, 1);
   });

@@ -1,9 +1,8 @@
 /**
  * CEO Mission → Builder Runtime task (HQ adapter).
- * Writes markdown artifacts only. Does not redesign runtime FSM / Stage 6.
+ * Writes mission artifacts via runtime storage only (Vercel-safe — no project fs writes).
  */
 
-import fs from "node:fs";
 import path from "node:path";
 import { formatAuditLine, validateCeoTaskInput } from "../../../docs/ai-team/runtime/lib/runtime-core.mjs";
 import { generateMissionPlan, type MissionPlan } from "./mission-plan";
@@ -18,6 +17,13 @@ import type { ExecutionRecord } from "./execution/types";
 import { DEFAULT_WORKSPACE_ID } from "./workspace/types";
 import { recordWorkspaceEvent } from "./workspace/collaboration-feed";
 import type { WorkspaceHumanRole } from "./workspace/types";
+import {
+  deleteText,
+  exists,
+  getText,
+  listRelKeys,
+  setText,
+} from "./storage";
 
 /** Exact board index path — never confuse with the `docs/ai-team/tasks/` directory. */
 export const TASK_BOARD_REL = "docs/ai-team/TASKS.md";
@@ -48,11 +54,7 @@ export type CreateCeoMissionResult =
     };
 
 function readSafe(root: string, rel: string): string {
-  try {
-    return fs.readFileSync(path.join(root, rel), "utf8");
-  } catch {
-    return "";
-  }
+  return getText(root, rel) ?? "";
 }
 
 function todayUtcDate(): string {
@@ -67,15 +69,11 @@ function kstStamp(): string {
 }
 
 function allocateTaskId(root: string, date = todayUtcDate()): string {
-  const dir = path.join(root, TASK_DETAILS_DIR_REL);
   let max = 0;
-  try {
-    for (const f of fs.readdirSync(dir)) {
-      const m = f.match(new RegExp(`^TASK-${date}-(\\d{3})\\.md$`));
-      if (m) max = Math.max(max, Number(m[1]));
-    }
-  } catch {
-    /* empty */
+  for (const rel of listRelKeys(root, TASK_DETAILS_DIR_REL)) {
+    const f = rel.split("/").pop() ?? "";
+    const m = f.match(new RegExp(`^TASK-${date}-(\\d{3})\\.md$`));
+    if (m) max = Math.max(max, Number(m[1]));
   }
   const tasksMd = readSafe(root, TASK_BOARD_REL);
   for (const line of tasksMd.split(/\r?\n/)) {
@@ -94,18 +92,14 @@ function collectExistingTitlesAndGoals(root: string): string[] {
     );
     if (m) out.push(m[2].trim());
   }
-  const dir = path.join(root, TASK_DETAILS_DIR_REL);
-  try {
-    for (const f of fs.readdirSync(dir)) {
-      if (!f.startsWith("TASK-") || !f.endsWith(".md")) continue;
-      const body = readSafe(root, `${TASK_DETAILS_DIR_REL}/${f}`);
-      const ceo = body.match(/\|\s*\*\*CEO Goal\*\*\s*\|\s*([^|]+)\|/i)?.[1]?.trim();
-      const title = body.match(/\|\s*\*\*Title\*\*\s*\|\s*([^|]+)\|/i)?.[1]?.trim();
-      if (ceo) out.push(ceo);
-      if (title) out.push(title);
-    }
-  } catch {
-    /* empty */
+  for (const rel of listRelKeys(root, TASK_DETAILS_DIR_REL)) {
+    const f = rel.split("/").pop() ?? "";
+    if (!f.startsWith("TASK-") || !f.endsWith(".md")) continue;
+    const body = readSafe(root, rel);
+    const ceo = body.match(/\|\s*\*\*CEO Goal\*\*\s*\|\s*([^|]+)\|/i)?.[1]?.trim();
+    const title = body.match(/\|\s*\*\*Title\*\*\s*\|\s*([^|]+)\|/i)?.[1]?.trim();
+    if (ceo) out.push(ceo);
+    if (title) out.push(title);
   }
   return out;
 }
@@ -121,22 +115,8 @@ export function taskAlreadyIndexed(root: string, taskId: string): boolean {
   return false;
 }
 
-function writeAtomic(filePath: string, contents: string) {
-  const dir = path.dirname(filePath);
-  fs.mkdirSync(dir, { recursive: true });
-  const tmp = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(tmp, contents, "utf8");
-  try {
-    fs.renameSync(tmp, filePath);
-  } catch {
-    // Windows may EPERM on rename when the target is open — fall back to replace.
-    fs.copyFileSync(tmp, filePath);
-    try {
-      fs.unlinkSync(tmp);
-    } catch {
-      /* ignore */
-    }
-  }
+function writeAtomic(root: string, rel: string, contents: string) {
+  setText(root, rel, contents);
 }
 
 function parseActiveSprintId(sprintsMd: string): string | null {
@@ -394,10 +374,8 @@ export async function createCeoMission(
     createdAt,
   });
 
-  const tasksDir = path.join(root, TASK_DETAILS_DIR_REL);
-  fs.mkdirSync(tasksDir, { recursive: true });
-  const taskPath = path.join(tasksDir, `${taskId}.md`);
-  if (fs.existsSync(taskPath)) {
+  const tasksRel = `${TASK_DETAILS_DIR_REL}/${taskId}.md`;
+  if (exists(root, tasksRel)) {
     return {
       ok: false,
       code: "DUPLICATE",
@@ -406,11 +384,7 @@ export async function createCeoMission(
     };
   }
 
-  const boardPath = path.join(root, TASK_BOARD_REL);
-  const sprintsPath = path.join(root, SPRINTS_REL);
-  const auditPath = path.join(root, AUDIT_REL);
   const detailRel = sprintId ? `docs/ai-team/ops/sprints/${sprintId}.md` : null;
-  const detailPath = detailRel ? path.join(root, detailRel) : null;
 
   const boardBefore = readSafe(root, TASK_BOARD_REL);
   const sprintsBefore = sprintsMd;
@@ -419,7 +393,7 @@ export async function createCeoMission(
 
   let step = "task_detail";
   try {
-    writeAtomic(taskPath, taskBody);
+    writeAtomic(root, tasksRel, taskBody);
 
     step = "task_board";
     let tasksMd = boardBefore;
@@ -429,15 +403,16 @@ export async function createCeoMission(
       /(\*\*Last updated:\*\*\s*)\d{4}-\d{2}-\d{2}/,
       `$1${date}`
     );
-    writeAtomic(boardPath, tasksMd);
+    writeAtomic(root, TASK_BOARD_REL, tasksMd);
 
     if (sprintId) {
       step = "sprint_index";
-      writeAtomic(sprintsPath, appendSprintCommitted(sprintsBefore, { taskId, title }));
-      if (detailPath && detailBefore) {
+      writeAtomic(root, SPRINTS_REL, appendSprintCommitted(sprintsBefore, { taskId, title }));
+      if (detailRel && detailBefore) {
         step = "sprint_detail";
         writeAtomic(
-          detailPath,
+          root,
+          detailRel,
           appendSprintDetailCommitted(detailBefore, { taskId, title })
         );
       }
@@ -462,33 +437,33 @@ export async function createCeoMission(
       },
       rationale: `HQ Execute Mission — ${title}`,
     }) as string;
-    writeAtomic(auditPath, appendAuditRow(auditBefore, auditLine));
+    writeAtomic(root, AUDIT_REL, appendAuditRow(auditBefore, auditLine));
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     try {
-      if (fs.existsSync(taskPath)) fs.unlinkSync(taskPath);
+      deleteText(root, tasksRel);
     } catch {
       /* ignore rollback errors */
     }
     try {
-      writeAtomic(boardPath, boardBefore);
+      writeAtomic(root, TASK_BOARD_REL, boardBefore);
     } catch {
       /* ignore */
     }
     try {
-      writeAtomic(sprintsPath, sprintsBefore);
+      writeAtomic(root, SPRINTS_REL, sprintsBefore);
     } catch {
       /* ignore */
     }
-    if (detailPath && detailBefore) {
+    if (detailRel && detailBefore) {
       try {
-        writeAtomic(detailPath, detailBefore);
+        writeAtomic(root, detailRel, detailBefore);
       } catch {
         /* ignore */
       }
     }
     try {
-      writeAtomic(auditPath, auditBefore);
+      writeAtomic(root, AUDIT_REL, auditBefore);
     } catch {
       /* ignore */
     }
@@ -573,12 +548,12 @@ export function reconcileTaskIndex(
   options?: { repoRoot?: string; title?: string }
 ): { ok: true; updated: string[] } | { ok: false; message: string } {
   const root = path.resolve(options?.repoRoot ?? process.cwd());
-  const taskPath = path.join(root, TASK_DETAILS_DIR_REL, `${taskId}.md`);
-  if (!fs.existsSync(taskPath)) {
+  const taskRel = `${TASK_DETAILS_DIR_REL}/${taskId}.md`;
+  if (!exists(root, taskRel)) {
     return { ok: false, message: `Task detail missing: ${TASK_DETAILS_DIR_REL}/${taskId}.md` };
   }
 
-  const body = fs.readFileSync(taskPath, "utf8");
+  const body = readSafe(root, taskRel);
   const title =
     options?.title ??
     body.match(/\|\s*\*\*Title\*\*\s*\|\s*([^|]+)\|/i)?.[1]?.trim() ??
@@ -595,23 +570,17 @@ export function reconcileTaskIndex(
     board = insertTaskBoardRow(board, { taskId, title, sprintId, date });
     board = bumpWaitingCeoSummary(board);
     board = board.replace(/(\*\*Last updated:\*\*\s*)\d{4}-\d{2}-\d{2}/, `$1${date}`);
-    writeAtomic(path.join(root, TASK_BOARD_REL), board);
+    writeAtomic(root, TASK_BOARD_REL, board);
     updated.push(TASK_BOARD_REL);
   }
 
   if (sprintId && !sprintsMd.includes(taskId)) {
-    writeAtomic(
-      path.join(root, SPRINTS_REL),
-      appendSprintCommitted(sprintsMd, { taskId, title })
-    );
+    writeAtomic(root, SPRINTS_REL, appendSprintCommitted(sprintsMd, { taskId, title }));
     updated.push(SPRINTS_REL);
     const detailRel = `docs/ai-team/ops/sprints/${sprintId}.md`;
     const detail = readSafe(root, detailRel);
     if (detail && !detail.includes(taskId)) {
-      writeAtomic(
-        path.join(root, detailRel),
-        appendSprintDetailCommitted(detail, { taskId, title })
-      );
+      writeAtomic(root, detailRel, appendSprintDetailCommitted(detail, { taskId, title }));
       updated.push(detailRel);
     }
   }
@@ -630,7 +599,7 @@ export function reconcileTaskIndex(
       after: { indexed: true, sprint: sprintId },
       rationale: `Reconcile orphan task detail into board — ${title}`,
     }) as string;
-    writeAtomic(path.join(root, AUDIT_REL), appendAuditRow(audit, line));
+    writeAtomic(root, AUDIT_REL, appendAuditRow(audit, line));
     updated.push(AUDIT_REL);
   }
 

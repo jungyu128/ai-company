@@ -17,6 +17,7 @@ import {
 } from "@/services/builder/workspace/workspace.store";
 import { ensureHqAccess } from "@/services/builder/workspace/workspace.service";
 import { readJsonFile, writeJsonFile, workspaceFile } from "@/services/builder/workspace/json-file";
+import { setText } from "@/services/builder/storage";
 import { upsertCollaboration, listCollaborations } from "@/services/builder/collaboration.store";
 import { planCollaborationChain } from "@/services/builder/collaboration.logic";
 import { decideApproval } from "@/services/builder/approval.service";
@@ -141,10 +142,9 @@ describe("beta validation & production hardening", () => {
   });
 
   it("recovers from malformed storage JSON", () => {
-    const file = workspaceFile(tmp, "ai-company-broken.json", "default");
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, "{not-json", "utf8");
-    const recovered = readJsonFile<{ ok: boolean }>(file, { ok: true });
+    const rel = workspaceFile(tmp, "ai-company-broken.json", "default");
+    setText(tmp, rel, "{not-json");
+    const recovered = readJsonFile<{ ok: boolean }>(tmp, rel, { ok: true });
     assert.deepEqual(recovered, { ok: true });
   });
 
@@ -326,9 +326,9 @@ describe("beta validation & production hardening", () => {
   });
 
   it("atomic write recovers via writeJsonFile", () => {
-    const file = workspaceFile(tmp, "ai-company-atomic.json", "default");
-    writeJsonFile(file, { v: 1 });
-    writeJsonFile(file, { v: 2 });
-    assert.deepEqual(readJsonFile(file, { v: 0 }), { v: 2 });
+    const rel = workspaceFile(tmp, "ai-company-atomic.json", "default");
+    writeJsonFile(tmp, rel, { v: 1 });
+    writeJsonFile(tmp, rel, { v: 2 });
+    assert.deepEqual(readJsonFile(tmp, rel, { v: 0 }), { v: 2 });
   });
 });

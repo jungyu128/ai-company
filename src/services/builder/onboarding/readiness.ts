@@ -2,17 +2,16 @@
  * Workspace readiness checks for launch / beta entry.
  */
 
-import fs from "node:fs";
-import path from "node:path";
 import { AI_COMPANY_EMPLOYEES } from "../ai-company-employees";
 import { isInternalAiCompanyEnabled } from "../internal-ai-company";
-import { opsRel } from "../workspace/paths";
 import { getMember, listMembers, getWorkspace } from "../workspace/workspace.store";
 import { permissionsForRole } from "../workspace/permissions";
 import { DEFAULT_WORKSPACE_ID } from "../workspace/types";
 import { getBetaSafetyGuarantees } from "./beta-safety";
 import { verifyOnboardingConnections } from "./connection-verify";
 import type { OnboardingState, ReadinessCheckResult } from "./types";
+import { getStorageStatus, setText, getText } from "../storage";
+import { opsRel } from "../workspace/paths";
 
 export function runWorkspaceReadiness(input: {
   workspaceId: string;
@@ -159,10 +158,10 @@ export function runWorkspaceReadiness(input: {
     blocking: false,
   });
 
-  const execPath = path.join(root, opsRel("ai-company-executions.json", wsId));
-  const auditPath = path.join(root, opsRel("ai-company-audit.json", wsId));
-  checks.push(storageCheck("execution.storage", execPath, "Execution history storage"));
-  checks.push(storageCheck("audit.storage", auditPath, "Activity audit storage"));
+  const execRel = opsRel("ai-company-executions.json", wsId);
+  const auditRel = opsRel("ai-company-audit.json", wsId);
+  checks.push(storageCheck(root, "execution.storage", execRel, "Execution history storage"));
+  checks.push(storageCheck(root, "audit.storage", auditRel, "Activity audit storage"));
 
   const beta = getBetaSafetyGuarantees();
   checks.push({
@@ -212,28 +211,41 @@ export function runWorkspaceReadiness(input: {
 }
 
 function storageCheck(
+  repoRoot: string,
   key: string,
-  filePath: string,
+  relPath: string,
   label: string
 ): ReadinessCheckResult {
   try {
-    const dir = path.dirname(filePath);
-    fs.mkdirSync(dir, { recursive: true });
-    // Touchability probe without writing secrets
-    fs.accessSync(dir, fs.constants.W_OK);
+    const status = getStorageStatus();
+    if (!status.writable) {
+      return {
+        key,
+        status: "fail",
+        explanation: `${label} is not writable (${status.detail}).`,
+        remediation: "Configure memory/KV storage for AI Company data.",
+        blocking: true,
+      };
+    }
+    // Probe write/read without touching the project filesystem.
+    const probe = `${relPath}.__probe__`;
+    setText(repoRoot, probe, "ok");
+    const ok = getText(repoRoot, probe) === "ok";
     return {
       key,
-      status: "pass",
-      explanation: `${label} is available.`,
-      remediation: "No action needed.",
-      blocking: false,
+      status: ok ? "pass" : "fail",
+      explanation: ok
+        ? `${label} is available (${status.backend}).`
+        : `${label} probe failed.`,
+      remediation: ok ? "No action needed." : "Check AI Company storage configuration.",
+      blocking: !ok,
     };
   } catch {
     return {
       key,
       status: "fail",
       explanation: `${label} is not writable.`,
-      remediation: "Fix storage permissions for AI Company data.",
+      remediation: "Configure AI Company runtime storage (memory or Vercel KV).",
       blocking: true,
     };
   }

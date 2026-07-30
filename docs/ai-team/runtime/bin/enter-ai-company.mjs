@@ -17,7 +17,9 @@ if (!result.ok) {
   process.exit(1);
 }
 
-const { markdown } = writeHqMarkdown(repoRoot, result.value);
+const { markdown, hqPath } = writeHqMarkdown(repoRoot, result.value);
 process.stdout.write(markdown);
-process.stderr.write(`\n[ai-company] HQ written to docs/ai-team/ops/HQ.md\n`);
+process.stderr.write(
+  `\n[ai-company] HQ ${hqPath ? `stored at ${hqPath} (runtime storage)` : "generated (storage bridge unavailable)"}\n`
+);
 process.stderr.write(`[ai-company] Web HQ: /builder/hq\n`);

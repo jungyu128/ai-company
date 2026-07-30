@@ -1,7 +1,7 @@
 /**
- * Load Builder Runtime artifacts from disk into buildAiCompanyHq().
- * Used by CLI and Next.js via static import of this module — no customer data.
- * Reads markdown/audit files with node:fs (not dynamic import()).
+ * Load Builder Runtime artifacts into buildAiCompanyHq().
+ * Reads via storage bridge (preferred) or packaged read-only files.
+ * Never writes to the project filesystem (Vercel-safe).
  */
 
 import fs from "node:fs";
@@ -9,7 +9,35 @@ import path from "node:path";
 import { buildAiCompanyHq, formatAiCompanyHqMarkdown } from "./runtime-hq.mjs";
 import { buildCeoAdvisor } from "./runtime-ceo-advisor.mjs";
 
+function storageGet(root, rel) {
+  const g = globalThis;
+  if (typeof g.__AI_COMPANY_STORAGE_GET === "function") {
+    const v = g.__AI_COMPANY_STORAGE_GET(root, rel);
+    if (v != null) return v;
+  }
+  return null;
+}
+
+function storageSet(root, rel, value) {
+  const g = globalThis;
+  if (typeof g.__AI_COMPANY_STORAGE_SET === "function") {
+    g.__AI_COMPANY_STORAGE_SET(root, rel, value);
+    return true;
+  }
+  return false;
+}
+
+function storageList(root, prefix) {
+  const g = globalThis;
+  if (typeof g.__AI_COMPANY_STORAGE_LIST === "function") {
+    return g.__AI_COMPANY_STORAGE_LIST(root, prefix) ?? [];
+  }
+  return [];
+}
+
 function readSafe(root, rel) {
+  const fromStorage = storageGet(root, rel);
+  if (fromStorage != null) return fromStorage;
   try {
     return fs.readFileSync(path.join(root, rel), "utf8");
   } catch {
@@ -18,14 +46,25 @@ function readSafe(root, rel) {
 }
 
 function listReleaseHistory(root) {
-  const dir = path.join(root, "docs/ai-team/ops/releases");
-  let files = [];
-  try {
-    files = fs.readdirSync(dir).filter((f) => f.startsWith("REL-") && f.endsWith(".md"));
-  } catch {
-    return [];
+  const fromStorage = storageList(root, "docs/ai-team/ops/releases")
+    .filter((f) => f.includes("/REL-") && f.endsWith(".md"))
+    .sort()
+    .reverse();
+
+  let files = fromStorage.map((rel) => path.posix.basename(rel));
+  if (files.length === 0) {
+    const dir = path.join(root, "docs/ai-team/ops/releases");
+    try {
+      files = fs
+        .readdirSync(dir)
+        .filter((f) => f.startsWith("REL-") && f.endsWith(".md"))
+        .sort()
+        .reverse();
+    } catch {
+      files = [];
+    }
   }
-  files.sort().reverse();
+
   return files.map((file) => {
     const body = readSafe(root, `docs/ai-team/ops/releases/${file}`);
     const feature = body.match(/\*\*Feature:\*\*\s*(.+)/)?.[1]?.trim();
@@ -41,14 +80,25 @@ function listReleaseHistory(root) {
 }
 
 function listAgentDocs(root) {
-  const dir = path.join(root, "docs/ai-team/runtime/agents");
-  let files = [];
-  try {
-    files = fs.readdirSync(dir).filter((f) => f.startsWith("AGENT-") && f.endsWith(".md"));
-  } catch {
-    return [];
+  const fromStorage = storageList(root, "docs/ai-team/runtime/agents").filter(
+    (f) => f.includes("/AGENT-") && f.endsWith(".md")
+  );
+
+  let files = fromStorage.map((rel) => path.posix.basename(rel));
+  if (files.length === 0) {
+    const dir = path.join(root, "docs/ai-team/runtime/agents");
+    try {
+      files = fs
+        .readdirSync(dir)
+        .filter((f) => f.startsWith("AGENT-") && f.endsWith(".md"))
+        .sort();
+    } catch {
+      files = [];
+    }
+  } else {
+    files = files.sort();
   }
-  files.sort();
+
   return files.map((file) => {
     const role = file.replace(/^AGENT-/, "").replace(/\.md$/, "");
     return {
@@ -62,6 +112,13 @@ function listAgentDocs(root) {
  * @param {string} [repoRoot]
  */
 export function loadAiCompanyHqFromDisk(repoRoot = process.cwd(), opts = {}) {
+  // Ensure TS storage bridge is registered when loaded from Next.js.
+  try {
+    // Side-effect import path is resolved by Next/tsx when HQ is loaded via hq.service.
+  } catch {
+    /* ignore */
+  }
+
   const root = path.resolve(repoRoot);
   const releaseHistory = listReleaseHistory(root);
   const result = buildAiCompanyHq({
@@ -109,9 +166,11 @@ export function writeHqMarkdown(repoRoot, snapshot) {
       `${advisorMd}## What is my company doing right now?`
     );
   }
-  const hqPath = path.join(repoRoot, "docs/ai-team/ops/HQ.md");
-  fs.writeFileSync(hqPath, markdown + "\n", "utf8");
-  return { markdown, hqPath };
+  const rel = "docs/ai-team/ops/HQ.md";
+  const body = markdown + "\n";
+  const wrote = storageSet(repoRoot, rel, body);
+  // Never write to project filesystem — return virtual path when storage is used.
+  return { markdown, hqPath: wrote ? rel : null };
 }
 
 export { formatAiCompanyHqMarkdown, buildAiCompanyHq };

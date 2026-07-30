@@ -47,7 +47,7 @@ export function readCeoStore(
   workspaceId = DEFAULT_WORKSPACE_ID,
   repoRoot = process.cwd()
 ): CeoStoreShape {
-  return readJsonFile(pathFor(repoRoot, workspaceId), empty());
+  return readJsonFile(repoRoot, pathFor(repoRoot, workspaceId), empty());
 }
 
 export function writeCeoStore(
@@ -55,7 +55,7 @@ export function writeCeoStore(
   workspaceId = DEFAULT_WORKSPACE_ID,
   repoRoot = process.cwd()
 ) {
-  writeJsonFile(pathFor(repoRoot, workspaceId), store);
+  writeJsonFile(repoRoot, pathFor(repoRoot, workspaceId), store);
 }
 
 export function persistCeoCycle(input: {
