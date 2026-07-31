@@ -44,6 +44,8 @@ function workspaceKindFor(
     case "review_completed":
     case "blocked":
     case "resumed":
+    case "meeting_started":
+    case "meeting_completed":
     default:
       return "assignment";
   }
@@ -223,6 +225,27 @@ export function recordWorkStateTimelineTransition(input: {
       ...base,
       kind: "work_completed",
       summary: `${input.employeeName} completed work${title}`,
+    });
+  }
+
+  if (
+    (input.toStatus === "Working" ||
+      input.toStatus === "WORKING" ||
+      input.toStatus === "Reviewing" ||
+      input.toStatus === "REVIEWING" ||
+      input.toStatus === "Completed" ||
+      input.toStatus === "COMPLETED" ||
+      input.toStatus === "Planning" ||
+      input.toStatus === "Idle") &&
+    (input.fromStatus === "Meeting" ||
+      input.fromStatus === "MEETING" ||
+      input.fromStatus === "Waiting" ||
+      input.fromStatus === "WAITING")
+  ) {
+    return recordCompanyTimelineEvent({
+      ...base,
+      kind: "resumed",
+      summary: `${input.employeeName} resumed work${title}`,
     });
   }
 

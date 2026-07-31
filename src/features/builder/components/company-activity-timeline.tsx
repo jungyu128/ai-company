@@ -21,6 +21,8 @@ const KIND_DOT: Record<CompanyTimelineEventKind, string> = {
   work_completed: "bg-teal-500",
   blocked: "bg-rose-500",
   resumed: "bg-lime-400",
+  meeting_started: "bg-cyan-400",
+  meeting_completed: "bg-cyan-600",
 };
 
 export function CompanyActivityTimeline({ events }: Props) {

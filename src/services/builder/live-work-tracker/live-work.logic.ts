@@ -54,13 +54,18 @@ export function meetingOccupancy(input: {
   meetings: CompanyMeeting[];
   employeeId: string;
 }): { inMeeting: boolean; meetingTitle: string | null } {
-  const open = input.meetings.filter(
-    (m) =>
-      (m.status === "scheduled" ||
-        m.status === "in_discussion" ||
-        m.status === "awaiting_ceo") &&
-      m.participantIds.includes(input.employeeId)
-  );
+  // Only active lifecycle statuses occupy employees.
+  // awaiting_ceo / approved / completed / cancelled never leave people Waiting forever.
+  const open = input.meetings.filter((m) => {
+    if (!m.participantIds.includes(input.employeeId)) return false;
+    if (m.completedAt || m.cancelledAt) return false;
+    return (
+      m.status === "scheduled" ||
+      m.status === "started" ||
+      m.status === "in_progress" ||
+      m.status === "in_discussion"
+    );
+  });
   if (!open.length) return { inMeeting: false, meetingTitle: null };
   const m = open[0]!;
   return { inMeeting: true, meetingTitle: m.title };

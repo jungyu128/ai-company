@@ -11,14 +11,23 @@ export type MeetingKind =
   | "release_review"
   | "incident_review";
 
+/**
+ * Meeting lifecycle + CEO gate statuses.
+ * Active occupancy: scheduled → started → in_progress (and legacy in_discussion).
+ * Terminal / non-occupying: completed | cancelled | awaiting_ceo | approved | postponed | rejected.
+ * `awaiting_ceo` is a post-meeting CEO approval gate — employees must not stay Waiting.
+ */
 export type MeetingStatus =
   | "scheduled"
+  | "started"
+  | "in_progress"
   | "in_discussion"
+  | "completed"
+  | "cancelled"
   | "awaiting_ceo"
   | "approved"
   | "postponed"
-  | "rejected"
-  | "completed";
+  | "rejected";
 
 export type CeoMeetingAction =
   | "join"
@@ -31,6 +40,8 @@ export type MeetingAgendaItem = {
   id: string;
   text: string;
   ownerEmployeeId: string | null;
+  /** Set when the agenda item was covered in discussion. */
+  completed?: boolean;
 };
 
 export type MeetingDiscussionTurn = {
@@ -91,6 +102,15 @@ export type CompanyMeeting = {
   createdAt: string;
   updatedAt: string;
   presentedToCeoAt: string | null;
+  /** Lifecycle timestamps */
+  startedAt: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  lastActivityAt: string;
+  expectedDurationMinutes: number;
+  agendaCompleted: boolean;
+  /** True when closed by stale recovery. */
+  stale: boolean;
 };
 
 export type MeetingAutoCreateHint = {

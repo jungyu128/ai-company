@@ -11,7 +11,8 @@ import {
   getContinuousOsStore,
   upsertEmployeeStates,
 } from "../continuous-os/continuous-os.store";
-import { listCompanyMeetings } from "../meetings/meeting.service";
+import { listMeetings } from "../meetings/meeting.store";
+import { normalizeMeeting } from "../meetings/meeting.logic";
 import { recordWorkStateTimelineTransition } from "../company-timeline/company-timeline.service";
 import { recordWorkspaceEvent } from "../workspace/collaboration-feed";
 import { DEFAULT_WORKSPACE_ID } from "../workspace/types";
@@ -46,7 +47,7 @@ export function enrichAndPersistLiveStates(input?: {
   const cos = getContinuousOsStore(root, workspaceId);
   const tasks = getAutonomyStore(root, workspaceId).tasks;
   const byTask = new Map(tasks.map((t) => [t.id, t]));
-  const meetings = listCompanyMeetings({ repoRoot: root, workspaceId, limit: 40 });
+  const meetings = listMeetings(root, workspaceId, 40).map(normalizeMeeting);
 
   const enriched = cos.employeeStates.map((base) => {
     const task = base.activeTaskId ? byTask.get(base.activeTaskId) ?? null : null;

@@ -13,7 +13,9 @@ export type CompanyTimelineEventKind =
   | "approval_granted"
   | "work_completed"
   | "blocked"
-  | "resumed";
+  | "resumed"
+  | "meeting_started"
+  | "meeting_completed";
 
 export type CompanyTimelineEvent = {
   id: string;
@@ -54,4 +56,6 @@ export const COMPANY_TIMELINE_LABELS: Record<CompanyTimelineEventKind, string> =
   work_completed: "Work completed",
   blocked: "Blocked",
   resumed: "Resumed",
+  meeting_started: "Meeting started",
+  meeting_completed: "Meeting completed",
 };

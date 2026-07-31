@@ -10,8 +10,8 @@
     "lint": "eslint",
     "db:generate": "prisma generate",
     "postinstall": "prisma generate",
-    "test": "tsx --test src/__tests__/builder/**/*.test.ts",
-    "test:builder": "tsx --test src/__tests__/builder/**/*.test.ts",
+    "test": "tsx --require ./scripts/stub-server-only.cjs --test src/__tests__/builder/**/*.test.ts",
+    "test:builder": "tsx --require ./scripts/stub-server-only.cjs --test src/__tests__/builder/**/*.test.ts",
     "test:ai-company": "node --test docs/ai-team/runtime/__tests__/*.mjs",
     "ai-company:enter": "node docs/ai-team/runtime/bin/enter-ai-company.mjs"
   },

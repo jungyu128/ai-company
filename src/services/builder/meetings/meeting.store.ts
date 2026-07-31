@@ -83,6 +83,8 @@ export function listOpenMeetingKinds(
 ): Set<MeetingKind> {
   const open: MeetingStatus[] = [
     "scheduled",
+    "started",
+    "in_progress",
     "in_discussion",
     "awaiting_ceo",
     "postponed",

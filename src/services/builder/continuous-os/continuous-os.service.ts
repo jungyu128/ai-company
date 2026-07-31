@@ -22,7 +22,7 @@ import {
 import { listActiveWorkpilotMissions } from "../autonomous-company/mission-scope.logic";
 import { linkFromMission } from "../autonomous-company/work-items.logic";
 import { listCollaborations } from "../collaboration.store";
-import { autoCreateNeededMeetings } from "../meetings";
+import { autoCreateNeededMeetings, resolveMeetingLifecycles } from "../meetings";
 import { runCalendarMaintenance } from "../calendar";
 import { recordCompanyAnalyticsSample } from "../analytics";
 import {
@@ -165,7 +165,12 @@ export function runContinuousOsTick(input?: {
           deliverToChat: input?.deliverToChat !== false,
         });
 
-  // Meetings: employees auto-create + discuss before CEO when WorkPilot signals need it
+  // Meetings: recover stale/deadlocked first, then auto-create + discuss
+  resolveMeetingLifecycles({
+    repoRoot: root,
+    workspaceId,
+    now,
+  });
   autoCreateNeededMeetings({
     repoRoot: root,
     workspaceId,

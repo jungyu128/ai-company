@@ -1,9 +1,11 @@
 /**
- * Pure meeting helpers — create, discuss, decide, action items.
+ * Pure meeting helpers — create, discuss, decide, action items, lifecycle.
  */
 
 import { getEmployeeDefinition } from "../ai-company-employees";
 import { filterValidCollaborators } from "../autonomous-company/employee-role.logic";
+import type { DevTaskStatus } from "../autonomous-company/types";
+import type { EmployeeWorkState } from "../continuous-os/types";
 import type {
   CompanyMeeting,
   MeetingActionItem,
@@ -12,6 +14,7 @@ import type {
   MeetingDecision,
   MeetingDiscussionTurn,
   MeetingKind,
+  MeetingStatus,
 } from "./types";
 
 function newId(prefix: string): string {
@@ -39,6 +42,173 @@ export const MEETING_KIND_LABEL: Record<MeetingKind, string> = {
   release_review: "Release Review",
   incident_review: "Incident Review",
 };
+
+/** Expected active duration before a quiet meeting is considered stale. */
+export const MEETING_EXPECTED_DURATION_MINUTES: Record<MeetingKind, number> = {
+  daily_standup: 15,
+  design_review: 30,
+  qa_review: 30,
+  architecture_review: 45,
+  release_review: 45,
+  sprint_planning: 60,
+  incident_review: 45,
+};
+
+/** Statuses that keep employees occupied in Live Work Meeting/Waiting. */
+export const MEETING_OCCUPANCY_STATUSES: MeetingStatus[] = [
+  "scheduled",
+  "started",
+  "in_progress",
+  "in_discussion",
+];
+
+export function expectedDurationForKind(kind: MeetingKind): number {
+  return MEETING_EXPECTED_DURATION_MINUTES[kind] ?? 30;
+}
+
+export function isOccupyingMeetingStatus(status: MeetingStatus): boolean {
+  return MEETING_OCCUPANCY_STATUSES.includes(status);
+}
+
+export function isMeetingOccupyingEmployees(meeting: CompanyMeeting): boolean {
+  if (meeting.completedAt || meeting.cancelledAt) return false;
+  if (
+    meeting.status === "completed" ||
+    meeting.status === "cancelled" ||
+    meeting.status === "awaiting_ceo" ||
+    meeting.status === "approved" ||
+    meeting.status === "postponed" ||
+    meeting.status === "rejected"
+  ) {
+    return false;
+  }
+  return isOccupyingMeetingStatus(meeting.status);
+}
+
+/** Backfill lifecycle fields for meetings persisted before the deadlock fix. */
+export function normalizeMeeting(meeting: CompanyMeeting): CompanyMeeting {
+  const expectedDurationMinutes =
+    meeting.expectedDurationMinutes ?? expectedDurationForKind(meeting.kind);
+  const lastActivityAt =
+    meeting.lastActivityAt ??
+    meeting.updatedAt ??
+    meeting.presentedToCeoAt ??
+    meeting.createdAt;
+  const startedAt =
+    meeting.startedAt ??
+    (meeting.status !== "scheduled" ? meeting.createdAt : null);
+  let completedAt = meeting.completedAt ?? null;
+  let cancelledAt = meeting.cancelledAt ?? null;
+  // Legacy deadlock: awaiting_ceo held occupancy forever — treat as discussion-complete.
+  if (
+    !completedAt &&
+    (meeting.status === "awaiting_ceo" ||
+      meeting.status === "approved" ||
+      meeting.status === "postponed" ||
+      meeting.status === "rejected")
+  ) {
+    completedAt =
+      meeting.presentedToCeoAt ?? meeting.updatedAt ?? meeting.createdAt;
+  }
+  if (!cancelledAt && meeting.status === "cancelled") {
+    cancelledAt = meeting.updatedAt ?? meeting.createdAt;
+  }
+  return {
+    ...meeting,
+    startedAt,
+    completedAt,
+    cancelledAt,
+    lastActivityAt,
+    expectedDurationMinutes,
+    agendaCompleted:
+      meeting.agendaCompleted ?? meeting.agenda.every((a) => a.completed),
+    stale: meeting.stale ?? false,
+  };
+}
+
+export function meetingObjectivesSatisfied(meeting: CompanyMeeting): boolean {
+  const agendaDone =
+    meeting.agendaCompleted ||
+    (meeting.agenda.length > 0 && meeting.agenda.every((a) => a.completed));
+  const hasDiscussion = meeting.discussion.length >= 2;
+  const hasDecision = meeting.decisions.length >= 1;
+  switch (meeting.kind) {
+    case "daily_standup":
+      return agendaDone && hasDiscussion;
+    case "architecture_review":
+    case "release_review":
+    case "design_review":
+    case "qa_review":
+    case "sprint_planning":
+    case "incident_review":
+      return agendaDone && hasDiscussion && hasDecision;
+    default:
+      return agendaDone && hasDiscussion;
+  }
+}
+
+export function shouldAutoCompleteMeeting(meeting: CompanyMeeting): boolean {
+  if (meeting.completedAt || meeting.cancelledAt) return false;
+  if (
+    meeting.status === "completed" ||
+    meeting.status === "cancelled" ||
+    meeting.status === "approved" ||
+    meeting.status === "postponed" ||
+    meeting.status === "rejected"
+  ) {
+    return false;
+  }
+  return meetingObjectivesSatisfied(meeting);
+}
+
+export function isMeetingStale(meeting: CompanyMeeting, now: string): boolean {
+  const m = normalizeMeeting(meeting);
+  if (m.completedAt || m.cancelledAt) return false;
+  if (
+    m.status === "completed" ||
+    m.status === "cancelled" ||
+    m.status === "approved" ||
+    m.status === "rejected"
+  ) {
+    return false;
+  }
+  if (!isOccupyingMeetingStatus(m.status) && m.status !== "awaiting_ceo") {
+    return false;
+  }
+  // awaiting_ceo without completedAt is legacy stuck occupancy — always stale.
+  if (m.status === "awaiting_ceo" && !meeting.completedAt) return true;
+  const last = Date.parse(m.lastActivityAt);
+  const nowMs = Date.parse(now);
+  if (Number.isNaN(last) || Number.isNaN(nowMs)) return false;
+  const limitMs = m.expectedDurationMinutes * 60_000;
+  return nowMs - last >= limitMs;
+}
+
+/**
+ * Map participant task status → next valid work state after the meeting ends.
+ * Waiting is never permanent: Meeting participants always resume.
+ */
+export function resumeWorkStateAfterMeeting(input: {
+  taskStatus: DevTaskStatus | null;
+}): EmployeeWorkState {
+  switch (input.taskStatus) {
+    case "in_progress":
+      return "Working";
+    case "peer_review":
+      return "Reviewing";
+    case "done":
+      return "Completed";
+    case "awaiting_ceo":
+      return "Waiting";
+    case "blocked":
+    case "needs_clarification":
+      return "Blocked";
+    case "proposed":
+      return "Planning";
+    default:
+      return "Idle";
+  }
+}
 
 export function defaultParticipantsForKind(kind: MeetingKind): string[] {
   const map: Record<MeetingKind, string[]> = {
@@ -99,6 +269,7 @@ export function defaultAgendaForKind(
     id: `ag-${i + 1}`,
     text,
     ownerEmployeeId: null,
+    completed: false,
   }));
 }
 
@@ -144,6 +315,13 @@ export function buildMeetingDraft(input: {
     createdAt: input.now,
     updatedAt: input.now,
     presentedToCeoAt: null,
+    startedAt: null,
+    completedAt: null,
+    cancelledAt: null,
+    lastActivityAt: input.now,
+    expectedDurationMinutes: expectedDurationForKind(input.kind),
+    agendaCompleted: false,
+    stale: false,
   };
 }
 
@@ -158,6 +336,8 @@ export function runMeetingDiscussion(input: {
   synthesis: string;
   owners: string[];
   dueDates: string[];
+  agenda: MeetingAgendaItem[];
+  agendaCompleted: boolean;
 } {
   const meeting = input.meeting;
   const leadId = meeting.participantIds[0]!;
@@ -206,7 +386,15 @@ export function runMeetingDiscussion(input: {
     });
   }
 
-  const decisionText = `Proceed with ${MEETING_KIND_LABEL[meeting.kind].toLowerCase()} outcome for “${focus}” — prepare CEO decision package; no merge/deploy without approval.`;
+  const decisionText =
+    meeting.kind === "daily_standup"
+      ? `Standup agenda complete for “${focus}” — blockers shared; resume assigned WorkPilot work.`
+      : meeting.kind === "architecture_review"
+        ? `Architecture review decision for “${focus}”: proceed with the recommended branch-scoped option; prepare CEO package — no merge without approval.`
+        : meeting.kind === "release_review"
+          ? `Release review decision for “${focus}”: go/no-go recommendation ready for CEO; no deploy without approval.`
+          : `Proceed with ${MEETING_KIND_LABEL[meeting.kind].toLowerCase()} outcome for “${focus}” — prepare CEO decision package; no merge/deploy without approval.`;
+
   const decisions: MeetingDecision[] = [
     {
       id: newId("mdec"),
@@ -233,12 +421,16 @@ export function runMeetingDiscussion(input: {
     };
   });
 
+  const agenda = meeting.agenda.map((item) => ({ ...item, completed: true }));
+  const agendaCompleted = agenda.length === 0 || agenda.every((a) => a.completed);
+
   const synthesis = [
     `${MEETING_KIND_LABEL[meeting.kind]} synthesis for WorkPilot “${focus}”.`,
     `Participants aligned: ${[lead?.name ?? leadId, ...peers.map((p) => p.name)].join(", ")}.`,
+    `Agenda completed: ${agendaCompleted ? "yes" : "no"}.`,
     `Proposed decision: ${decisionText}`,
     `Action items: ${actionItems.length} with owners and due dates.`,
-    "Ready for CEO join / comment / approve / postpone / reject.",
+    "Meeting objectives satisfied — employees resume work; CEO may still approve the package. Ready for CEO join / comment / approve / postpone / reject.",
   ].join(" ");
 
   return {
@@ -248,6 +440,8 @@ export function runMeetingDiscussion(input: {
     synthesis,
     owners: ownerIds,
     dueDates: [...new Set(actionItems.map((a) => a.dueDate))],
+    agenda,
+    agendaCompleted,
   };
 }
 

@@ -1,21 +1,33 @@
 /**
- * AI Company Meeting System — create, discuss, CEO decide, timeline/audit.
+ * AI Company Meeting System — create, discuss, complete, CEO decide, resume work.
  * Preserves HQ UI / chat / Continuous OS / role enforcement / execution safety.
  */
 
 import path from "node:path";
+import { getEmployeeDefinition } from "../ai-company-employees";
 import { isInternalAiCompanyEnabled } from "../internal-ai-company";
 import { listCollaborations } from "../collaboration.store";
 import { listActiveWorkpilotMissions } from "../autonomous-company/mission-scope.logic";
 import { getAutonomyStore } from "../autonomous-company/autonomous-company.store";
+import {
+  getContinuousOsStore,
+  upsertEmployeeStates,
+} from "../continuous-os/continuous-os.store";
 import { recordWorkspaceEvent } from "../workspace/collaboration-feed";
 import { DEFAULT_WORKSPACE_ID } from "../workspace/types";
 import { logOpsEvent } from "../hardening/ops-log";
 import { recordLongTermMemory } from "../memory/memory.service";
+import { recordCompanyTimelineEvent } from "../company-timeline/company-timeline.service";
+import { syncLiveWorkTracker } from "../live-work-tracker/live-work.service";
 import {
   buildMeetingDraft,
   detectNeededMeetings,
+  isMeetingOccupyingEmployees,
+  isMeetingStale,
+  normalizeMeeting,
+  resumeWorkStateAfterMeeting,
   runMeetingDiscussion,
+  shouldAutoCompleteMeeting,
 } from "./meeting.logic";
 import {
   getMeetingById,
@@ -61,6 +73,326 @@ function auditMeeting(
   });
 }
 
+function timelineMeeting(
+  meeting: CompanyMeeting,
+  input: {
+    kind: "meeting_started" | "meeting_completed";
+    summary: string;
+    repoRoot: string;
+    workspaceId: string;
+    at: string;
+  }
+) {
+  recordCompanyTimelineEvent({
+    kind: input.kind,
+    summary: input.summary,
+    actorName: "AI Company",
+    actorRole: "system",
+    employeeId: null,
+    workItemId: meeting.workItemId ?? meeting.missionId,
+    relatedType: "meeting",
+    relatedId: meeting.id,
+    at: input.at,
+    repoRoot: input.repoRoot,
+    workspaceId: input.workspaceId,
+  });
+}
+
+/**
+ * Release every participant from Meeting occupancy into the next valid work state.
+ */
+export function resumeMeetingParticipants(input: {
+  meeting: CompanyMeeting;
+  repoRoot: string;
+  workspaceId: string;
+  now: string;
+  syncLiveWork?: boolean;
+}): { employeeId: string; toState: string }[] {
+  const root = path.resolve(input.repoRoot);
+  const cos = getContinuousOsStore(root, input.workspaceId);
+  const tasks = getAutonomyStore(root, input.workspaceId).tasks;
+  const byTask = new Map(tasks.map((t) => [t.id, t]));
+  const byOwner = new Map(
+    tasks
+      .filter((t) => t.status !== "done")
+      .map((t) => [t.ownerEmployeeId, t] as const)
+  );
+
+  const stateById = new Map(cos.employeeStates.map((e) => [e.employeeId, e]));
+  const resumed: { employeeId: string; toState: string }[] = [];
+
+  for (const employeeId of input.meeting.participantIds) {
+    const empDef = getEmployeeDefinition(employeeId);
+    const prev = stateById.get(employeeId);
+    if (prev?.interrupted) continue;
+
+    const task =
+      (prev?.activeTaskId ? byTask.get(prev.activeTaskId) : null) ??
+      byOwner.get(employeeId) ??
+      null;
+    const toState = resumeWorkStateAfterMeeting({
+      taskStatus: task?.status ?? null,
+    });
+    resumed.push({ employeeId, toState });
+
+    const employeeName = prev?.employeeName ?? empDef?.name ?? employeeId;
+    recordCompanyTimelineEvent({
+      kind: "resumed",
+      summary: `${employeeName} resumed work after ${input.meeting.title}`,
+      actorName: employeeName,
+      actorRole: "ai_employee",
+      employeeId,
+      workItemId: task?.workItem?.id ?? input.meeting.workItemId,
+      relatedType: "meeting",
+      relatedId: input.meeting.id,
+      at: input.now,
+      repoRoot: root,
+      workspaceId: input.workspaceId,
+    });
+
+    stateById.set(employeeId, {
+      employeeId,
+      employeeName,
+      state: toState,
+      activeTaskId: task?.id ?? prev?.activeTaskId ?? null,
+      note:
+        toState === "Idle"
+          ? "Resumed after meeting — ready for next WorkPilot task"
+          : task?.progressNote ??
+            task?.title ??
+            `Resumed after ${input.meeting.title}`,
+      priority: prev?.priority ?? 50,
+      interrupted: false,
+      updatedAt: input.now,
+      waitingFor: toState === "Waiting" ? "CEO decision" : null,
+      progressPercent: prev?.progressPercent,
+      startedAt: prev?.startedAt ?? null,
+      estimatedCompletionAt: prev?.estimatedCompletionAt ?? null,
+      currentStep: prev?.currentStep,
+      dependencies: task?.collaboratorIds ?? prev?.dependencies ?? [],
+      nextPlannedAction: prev?.nextPlannedAction,
+    });
+  }
+
+  if (resumed.length) {
+    upsertEmployeeStates([...stateById.values()], root, input.workspaceId);
+  }
+
+  if (input.syncLiveWork !== false) {
+    try {
+      syncLiveWorkTracker({
+        repoRoot: root,
+        workspaceId: input.workspaceId,
+        now: input.now,
+        recordTimeline: true,
+      });
+    } catch {
+      /* non-blocking */
+    }
+  }
+
+  return resumed;
+}
+
+/**
+ * Mark meeting completed (or awaiting_ceo for CEO package) and free participants.
+ */
+export function completeCompanyMeeting(input: {
+  meeting: CompanyMeeting;
+  now: string;
+  presentToCeo?: boolean;
+  stale?: boolean;
+  repoRoot: string;
+  workspaceId: string;
+  resumeParticipants?: boolean;
+}): CompanyMeeting {
+  const root = path.resolve(input.repoRoot);
+  const presentToCeo = input.presentToCeo === true;
+  let meeting: CompanyMeeting = {
+    ...normalizeMeeting(input.meeting),
+    completedAt: input.meeting.completedAt ?? input.now,
+    agendaCompleted: true,
+    agenda: input.meeting.agenda.map((a) => ({ ...a, completed: true })),
+    status: presentToCeo ? "awaiting_ceo" : "completed",
+    presentedToCeoAt: presentToCeo
+      ? input.meeting.presentedToCeoAt ?? input.now
+      : input.meeting.presentedToCeoAt,
+    stale: input.stale === true,
+    lastActivityAt: input.now,
+    updatedAt: input.now,
+  };
+
+  upsertMeeting(meeting, root, input.workspaceId);
+
+  timelineMeeting(meeting, {
+    kind: "meeting_completed",
+    summary: input.stale
+      ? `Meeting completed (stale recovery): ${meeting.title}`
+      : `Meeting completed: ${meeting.title}`,
+    repoRoot: root,
+    workspaceId: input.workspaceId,
+    at: input.now,
+  });
+
+  auditMeeting(meeting, {
+    workspaceId: input.workspaceId,
+    repoRoot: root,
+    summary: input.stale
+      ? `Stale meeting resolved: ${meeting.title}`
+      : `Meeting completed: ${meeting.title}`,
+    actorUserId: null,
+    actorName: "AI Company",
+    actorRole: "system",
+    auditAction: input.stale ? "meeting.stale_resolved" : "meeting.completed",
+  });
+
+  if (presentToCeo) {
+    auditMeeting(meeting, {
+      workspaceId: input.workspaceId,
+      repoRoot: root,
+      summary: `Meeting ready for CEO: ${meeting.title}`,
+      actorUserId: null,
+      actorName: "AI Company",
+      actorRole: "system",
+      auditAction: "meeting.present",
+    });
+  }
+
+  if (input.resumeParticipants !== false) {
+    resumeMeetingParticipants({
+      meeting,
+      repoRoot: root,
+      workspaceId: input.workspaceId,
+      now: input.now,
+      syncLiveWork: true,
+    });
+  }
+
+  return meeting;
+}
+
+export function cancelCompanyMeeting(input: {
+  meeting: CompanyMeeting;
+  now: string;
+  note?: string | null;
+  repoRoot: string;
+  workspaceId: string;
+}): CompanyMeeting {
+  const root = path.resolve(input.repoRoot);
+  const meeting: CompanyMeeting = {
+    ...normalizeMeeting(input.meeting),
+    status: "cancelled",
+    cancelledAt: input.now,
+    completedAt: input.meeting.completedAt ?? input.now,
+    ceoNote: input.note ?? input.meeting.ceoNote,
+    lastActivityAt: input.now,
+    updatedAt: input.now,
+    actionItems: input.meeting.actionItems.map((a) =>
+      a.status === "open" ? { ...a, status: "cancelled" as const } : a
+    ),
+  };
+  upsertMeeting(meeting, root, input.workspaceId);
+  timelineMeeting(meeting, {
+    kind: "meeting_completed",
+    summary: `Meeting cancelled: ${meeting.title}`,
+    repoRoot: root,
+    workspaceId: input.workspaceId,
+    at: input.now,
+  });
+  resumeMeetingParticipants({
+    meeting,
+    repoRoot: root,
+    workspaceId: input.workspaceId,
+    now: input.now,
+  });
+  return meeting;
+}
+
+/**
+ * Recover stale / deadlocked meetings and free stuck participants.
+ */
+export function resolveMeetingLifecycles(input?: {
+  repoRoot?: string;
+  workspaceId?: string;
+  now?: string;
+}): CompanyMeeting[] {
+  if (!isInternalAiCompanyEnabled()) return [];
+  const root = path.resolve(input?.repoRoot ?? process.cwd());
+  const workspaceId = input?.workspaceId ?? DEFAULT_WORKSPACE_ID;
+  const now = input?.now ?? new Date().toISOString();
+  const resolved: CompanyMeeting[] = [];
+
+  for (const raw of listMeetings(root, workspaceId, 120)) {
+    const meeting = normalizeMeeting(raw);
+    const needsLegacyFix =
+      (meeting.status === "awaiting_ceo" ||
+        meeting.status === "approved" ||
+        meeting.status === "postponed" ||
+        meeting.status === "rejected") &&
+      !raw.completedAt;
+    const stale = isMeetingStale(raw, now);
+    const occupying = isMeetingOccupyingEmployees(meeting);
+
+    if (needsLegacyFix && !occupying) {
+      // Persist completedAt so normalize stays stable; free any leftover Meeting states.
+      const fixed = {
+        ...meeting,
+        completedAt:
+          meeting.completedAt ??
+          meeting.presentedToCeoAt ??
+          meeting.updatedAt,
+        lastActivityAt: now,
+        updatedAt: now,
+      };
+      upsertMeeting(fixed, root, workspaceId);
+      resumeMeetingParticipants({
+        meeting: fixed,
+        repoRoot: root,
+        workspaceId,
+        now,
+        syncLiveWork: true,
+      });
+      resolved.push(fixed);
+      continue;
+    }
+
+    if (stale && (occupying || needsLegacyFix || isMeetingOccupyingEmployees(raw))) {
+      resolved.push(
+        completeCompanyMeeting({
+          meeting,
+          now,
+          presentToCeo:
+            meeting.status === "awaiting_ceo" ||
+            meeting.kind === "architecture_review" ||
+            meeting.kind === "release_review",
+          stale: true,
+          repoRoot: root,
+          workspaceId,
+        })
+      );
+      continue;
+    }
+
+    if (
+      occupying &&
+      shouldAutoCompleteMeeting(meeting) &&
+      meeting.discussion.length >= 2
+    ) {
+      resolved.push(
+        completeCompanyMeeting({
+          meeting,
+          now,
+          presentToCeo: true,
+          repoRoot: root,
+          workspaceId,
+        })
+      );
+    }
+  }
+
+  return resolved;
+}
+
 export function listCompanyMeetings(input?: {
   repoRoot?: string;
   workspaceId?: string;
@@ -70,7 +402,7 @@ export function listCompanyMeetings(input?: {
     input?.repoRoot ?? process.cwd(),
     input?.workspaceId ?? DEFAULT_WORKSPACE_ID,
     input?.limit ?? 80
-  );
+  ).map(normalizeMeeting);
 }
 
 export function getCompanyMeeting(input: {
@@ -78,11 +410,12 @@ export function getCompanyMeeting(input: {
   repoRoot?: string;
   workspaceId?: string;
 }): CompanyMeeting | null {
-  return getMeetingById(
+  const m = getMeetingById(
     input.meetingId,
     input.repoRoot ?? process.cwd(),
     input.workspaceId ?? DEFAULT_WORKSPACE_ID
   );
+  return m ? normalizeMeeting(m) : null;
 }
 
 export function createCompanyMeeting(input: {
@@ -123,24 +456,64 @@ export function createCompanyMeeting(input: {
     organizerEmployeeId: input.organizerEmployeeId,
   });
 
+  // Lifecycle: Scheduled → Started → In Progress
+  meeting = {
+    ...meeting,
+    status: "started",
+    startedAt: now,
+    lastActivityAt: now,
+    updatedAt: now,
+  };
+  upsertMeeting(meeting, root, workspaceId);
+  timelineMeeting(meeting, {
+    kind: "meeting_started",
+    summary: `Meeting started: ${meeting.title}`,
+    repoRoot: root,
+    workspaceId,
+    at: now,
+  });
+
+  meeting = {
+    ...meeting,
+    status: "in_progress",
+    lastActivityAt: now,
+    updatedAt: now,
+  };
+
   if (input.runDiscussion !== false) {
     const discussed = runMeetingDiscussion({ meeting, now });
     meeting = {
       ...meeting,
-      status: input.presentToCeo === false ? "in_discussion" : "awaiting_ceo",
+      status: "in_progress",
       discussion: discussed.discussion,
       decisions: discussed.decisions,
       actionItems: discussed.actionItems,
       owners: discussed.owners,
       dueDates: discussed.dueDates,
       synthesis: discussed.synthesis,
-      presentedToCeoAt:
-        input.presentToCeo === false ? null : now,
+      agenda: discussed.agenda,
+      agendaCompleted: discussed.agendaCompleted,
+      lastActivityAt: now,
       updatedAt: now,
     };
+
+    // Auto-close when objectives are satisfied (standup / review decisions / etc.).
+    if (shouldAutoCompleteMeeting(meeting)) {
+      meeting = completeCompanyMeeting({
+        meeting,
+        now,
+        presentToCeo: input.presentToCeo !== false,
+        repoRoot: root,
+        workspaceId,
+        resumeParticipants: true,
+      });
+    } else {
+      upsertMeeting(meeting, root, workspaceId);
+    }
+  } else {
+    upsertMeeting(meeting, root, workspaceId);
   }
 
-  upsertMeeting(meeting, root, workspaceId);
   auditMeeting(meeting, {
     workspaceId,
     repoRoot: root,
@@ -171,24 +544,13 @@ export function createCompanyMeeting(input: {
     workspaceId,
     now,
   });
-  if (meeting.status === "awaiting_ceo") {
-    auditMeeting(meeting, {
-      workspaceId,
-      repoRoot: root,
-      summary: `Meeting ready for CEO: ${meeting.title}`,
-      actorUserId: null,
-      actorName: "AI Company",
-      actorRole: "system",
-      auditAction: "meeting.present",
-    });
-  }
   logOpsEvent({
     outcome: "ok",
     workspaceId,
     action: "meeting.create",
     executionStatus: meeting.status,
   });
-  return { ok: true, meeting };
+  return { ok: true, meeting: normalizeMeeting(meeting) };
 }
 
 /**
@@ -203,6 +565,9 @@ export function autoCreateNeededMeetings(input?: {
   const root = path.resolve(input?.repoRoot ?? process.cwd());
   const workspaceId = input?.workspaceId ?? DEFAULT_WORKSPACE_ID;
   const now = input?.now ?? new Date().toISOString();
+
+  // Free any deadlocked / stale meetings before creating new ones.
+  resolveMeetingLifecycles({ repoRoot: root, workspaceId, now });
 
   const missions = listActiveWorkpilotMissions(
     listCollaborations(root, workspaceId)
@@ -273,7 +638,11 @@ export function applyCeoMeetingAction(input: {
     };
   }
 
-  let meeting: CompanyMeeting = { ...existing, updatedAt: now };
+  let meeting: CompanyMeeting = {
+    ...normalizeMeeting(existing),
+    updatedAt: now,
+    lastActivityAt: now,
+  };
 
   switch (input.action) {
     case "join":
@@ -322,6 +691,7 @@ export function applyCeoMeetingAction(input: {
       meeting = {
         ...meeting,
         status: "approved",
+        completedAt: meeting.completedAt ?? now,
         ceoJoined: true,
         ceoDecision: "approve",
         ceoNote: input.note ?? null,
@@ -334,6 +704,7 @@ export function applyCeoMeetingAction(input: {
       meeting = {
         ...meeting,
         status: "postponed",
+        completedAt: meeting.completedAt ?? now,
         ceoJoined: true,
         ceoDecision: "postpone",
         ceoNote:
@@ -347,6 +718,8 @@ export function applyCeoMeetingAction(input: {
       meeting = {
         ...meeting,
         status: "rejected",
+        completedAt: meeting.completedAt ?? now,
+        cancelledAt: meeting.cancelledAt,
         ceoJoined: true,
         ceoDecision: "reject",
         ceoNote: input.note ?? "Rejected by CEO",
@@ -377,6 +750,20 @@ export function applyCeoMeetingAction(input: {
     actorRole: "owner",
     auditAction: `meeting.ceo_${input.action}`,
   });
+
+  // Ensure participants are free after any terminal CEO decision.
+  if (
+    input.action === "approve" ||
+    input.action === "postpone" ||
+    input.action === "reject"
+  ) {
+    resumeMeetingParticipants({
+      meeting,
+      repoRoot: root,
+      workspaceId,
+      now,
+    });
+  }
 
   if (input.action === "approve" || input.action === "reject") {
     recordLongTermMemory({

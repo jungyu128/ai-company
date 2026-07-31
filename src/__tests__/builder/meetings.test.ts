@@ -19,8 +19,16 @@ import {
   applyCeoMeetingAction,
   autoCreateNeededMeetings,
   listCompanyMeetings,
+  resolveMeetingLifecycles,
+  isMeetingOccupyingEmployees,
+  resumeWorkStateAfterMeeting,
   MEETING_KIND_LABEL,
 } from "@/services/builder/meetings";
+import { upsertMeeting } from "@/services/builder/meetings/meeting.store";
+import { upsertEmployeeStates } from "@/services/builder/continuous-os/continuous-os.store";
+import { syncLiveWorkTracker } from "@/services/builder/live-work-tracker/server";
+import { getCompanyTimeline } from "@/services/builder/company-timeline";
+import { AI_COMPANY_EMPLOYEES } from "@/services/builder/ai-company-employees";
 import { listAudit, listActivity } from "@/services/builder/workspace/collaboration-feed";
 
 describe("meeting structure and discussion", () => {
@@ -233,6 +241,283 @@ describe("meeting service + CEO actions + audit", () => {
     assert.ok(created.length >= 1);
     assert.ok(created.every((m) => m.discussion.length >= 1));
     assert.ok(created.every((m) => m.status === "awaiting_ceo"));
+    assert.ok(created.every((m) => m.completedAt != null));
+    assert.ok(created.every((m) => !isMeetingOccupyingEmployees(m)));
     assert.ok(listCompanyMeetings({ repoRoot: tmp }).length >= created.length);
+  });
+});
+
+describe("meeting lifecycle — no permanent Waiting deadlock", () => {
+  let tmp = "";
+  let prevFlag: string | undefined;
+
+  before(() => {
+    prevFlag = process.env.INTERNAL_AI_COMPANY_ENABLED;
+    process.env.INTERNAL_AI_COMPANY_ENABLED = "true";
+  });
+
+  after(() => {
+    if (prevFlag === undefined) delete process.env.INTERNAL_AI_COMPANY_ENABLED;
+    else process.env.INTERNAL_AI_COMPANY_ENABLED = prevFlag;
+  });
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "mtg-life-"));
+    fs.mkdirSync(path.join(tmp, "docs/ai-team/ops"), { recursive: true });
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("runs Scheduled → Started → In Progress → Completed lifecycle with timeline events", () => {
+    const result = createCompanyMeeting({
+      kind: "daily_standup",
+      workItemTitle: "WorkPilot HQ",
+      presentToCeo: false,
+      repoRoot: tmp,
+      now: "2026-07-31T17:00:00.000Z",
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.meeting.status, "completed");
+    assert.ok(result.meeting.startedAt);
+    assert.ok(result.meeting.completedAt);
+    assert.equal(result.meeting.agendaCompleted, true);
+    assert.equal(isMeetingOccupyingEmployees(result.meeting), false);
+
+    const timeline = getCompanyTimeline({ repoRoot: tmp });
+    assert.ok(timeline.events.some((e) => e.kind === "meeting_started"));
+    assert.ok(timeline.events.some((e) => e.kind === "meeting_completed"));
+    assert.ok(timeline.events.some((e) => e.kind === "resumed"));
+  });
+
+  it("auto-finishes Daily Standup after agenda completion and resumes Working", () => {
+    const task = proposeDevTask({
+      title: "Ship standup follow-up",
+      description: "Continue WorkPilot implementation with acceptance criteria.",
+      ownerEmployeeId: "alex",
+      now: "2026-07-31T17:05:00.000Z",
+      status: "in_progress",
+    });
+    upsertDevTasks([task], tmp, "default");
+    upsertEmployeeStates(
+      [
+        {
+          employeeId: "alex",
+          employeeName: "Alex",
+          state: "Working",
+          activeTaskId: task.id,
+          note: task.title,
+          priority: 1,
+          interrupted: false,
+          updatedAt: "2026-07-31T17:05:00.000Z",
+        },
+      ],
+      tmp,
+      "default"
+    );
+
+    const result = createCompanyMeeting({
+      kind: "daily_standup",
+      workItemTitle: task.title,
+      presentToCeo: false,
+      repoRoot: tmp,
+      now: "2026-07-31T17:06:00.000Z",
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.meeting.status, "completed");
+    assert.ok(result.meeting.agenda.every((a) => a.completed));
+
+    const snap = syncLiveWorkTracker({
+      repoRoot: tmp,
+      now: "2026-07-31T17:06:30.000Z",
+    });
+    const alex = snap.employees.find((e) => e.employeeId === "alex");
+    assert.ok(alex);
+    assert.equal(alex!.status, "Working");
+    assert.notEqual(alex!.currentStep, "In meeting");
+  });
+
+  it("Architecture Review finishes after decision and resumes Reviewing", () => {
+    const task = proposeDevTask({
+      title: "Architecture boundary review pack",
+      description: "Peer review architecture plan for HQ chat.",
+      ownerEmployeeId: "olivia",
+      now: "2026-07-31T17:10:00.000Z",
+      status: "peer_review",
+    });
+    upsertDevTasks([task], tmp, "default");
+    upsertEmployeeStates(
+      [
+        {
+          employeeId: "olivia",
+          employeeName: "Olivia",
+          state: "Reviewing",
+          activeTaskId: task.id,
+          note: task.title,
+          priority: 1,
+          interrupted: false,
+          updatedAt: "2026-07-31T17:10:00.000Z",
+        },
+      ],
+      tmp,
+      "default"
+    );
+
+    const result = createCompanyMeeting({
+      kind: "architecture_review",
+      workItemTitle: task.title,
+      presentToCeo: true,
+      repoRoot: tmp,
+      now: "2026-07-31T17:11:00.000Z",
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.meeting.status, "awaiting_ceo");
+    assert.ok(result.meeting.completedAt);
+    assert.ok(result.meeting.decisions.length >= 1);
+    assert.equal(isMeetingOccupyingEmployees(result.meeting), false);
+
+    const snap = syncLiveWorkTracker({
+      repoRoot: tmp,
+      now: "2026-07-31T17:11:30.000Z",
+    });
+    const olivia = snap.employees.find((e) => e.employeeId === "olivia");
+    assert.ok(olivia);
+    assert.equal(olivia!.status, "Reviewing");
+  });
+
+  it("Release Review finishes after decision and resumes Completed", () => {
+    const task = proposeDevTask({
+      title: "Release review for beta slice",
+      description: "Finalize release checklist — no auto-deploy.",
+      ownerEmployeeId: "daniel",
+      now: "2026-07-31T17:15:00.000Z",
+      status: "done",
+    });
+    upsertDevTasks([task], tmp, "default");
+    upsertEmployeeStates(
+      [
+        {
+          employeeId: "daniel",
+          employeeName: "Daniel",
+          state: "Completed",
+          activeTaskId: task.id,
+          note: task.title,
+          priority: 1,
+          interrupted: false,
+          updatedAt: "2026-07-31T17:15:00.000Z",
+        },
+      ],
+      tmp,
+      "default"
+    );
+
+    const result = createCompanyMeeting({
+      kind: "release_review",
+      workItemTitle: task.title,
+      presentToCeo: true,
+      repoRoot: tmp,
+      now: "2026-07-31T17:16:00.000Z",
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.ok(result.meeting.completedAt);
+    assert.equal(isMeetingOccupyingEmployees(result.meeting), false);
+
+    const snap = syncLiveWorkTracker({
+      repoRoot: tmp,
+      now: "2026-07-31T17:16:30.000Z",
+    });
+    const daniel = snap.employees.find((e) => e.employeeId === "daniel");
+    assert.ok(daniel);
+    assert.equal(daniel!.status, "Completed");
+  });
+
+  it("recovers stale meetings and frees multiple participants", () => {
+    const draft = buildMeetingDraft({
+      kind: "daily_standup",
+      now: "2026-07-31T12:00:00.000Z",
+      workItemTitle: "Stale standup",
+    });
+    const stuck = {
+      ...draft,
+      status: "in_progress" as const,
+      startedAt: "2026-07-31T12:00:00.000Z",
+      lastActivityAt: "2026-07-31T12:00:00.000Z",
+      expectedDurationMinutes: 15,
+      discussion: [
+        {
+          id: "md-1",
+          employeeId: "sarah",
+          employeeName: "Sarah",
+          role: "PM",
+          body: "Opening",
+          at: "2026-07-31T12:00:00.000Z",
+        },
+      ],
+    };
+    upsertMeeting(stuck, tmp, "default");
+
+    for (const id of stuck.participantIds.slice(0, 3)) {
+      const emp = AI_COMPANY_EMPLOYEES.find((e) => e.id === id)!;
+      upsertEmployeeStates(
+        [
+          {
+            employeeId: emp.id,
+            employeeName: emp.name,
+            state: "Meeting",
+            activeTaskId: null,
+            note: `In meeting: ${stuck.title}`,
+            priority: 1,
+            interrupted: false,
+            updatedAt: "2026-07-31T12:00:00.000Z",
+            waitingFor: stuck.title,
+            currentStep: "In meeting",
+          },
+        ],
+        tmp,
+        "default"
+      );
+    }
+
+    const resolved = resolveMeetingLifecycles({
+      repoRoot: tmp,
+      now: "2026-07-31T13:00:00.000Z",
+    });
+    assert.ok(resolved.length >= 1);
+    assert.ok(resolved[0]!.stale || resolved[0]!.completedAt);
+    assert.equal(isMeetingOccupyingEmployees(resolved[0]!), false);
+
+    const snap = syncLiveWorkTracker({
+      repoRoot: tmp,
+      now: "2026-07-31T13:00:30.000Z",
+    });
+    for (const id of stuck.participantIds.slice(0, 3)) {
+      const row = snap.employees.find((e) => e.employeeId === id);
+      assert.ok(row);
+      assert.notEqual(row!.status, "Meeting");
+      assert.notEqual(row!.currentStep, "In meeting");
+    }
+  });
+
+  it("does not treat awaiting_ceo as permanent occupancy (legacy deadlock fix)", () => {
+    assert.equal(
+      isMeetingOccupyingEmployees({
+        ...buildMeetingDraft({
+          kind: "architecture_review",
+          now: "2026-07-31T18:00:00.000Z",
+        }),
+        status: "awaiting_ceo",
+        completedAt: "2026-07-31T18:00:00.000Z",
+        startedAt: "2026-07-31T18:00:00.000Z",
+      }),
+      false
+    );
+    assert.equal(resumeWorkStateAfterMeeting({ taskStatus: "in_progress" }), "Working");
+    assert.equal(resumeWorkStateAfterMeeting({ taskStatus: "peer_review" }), "Reviewing");
+    assert.equal(resumeWorkStateAfterMeeting({ taskStatus: "done" }), "Completed");
   });
 });
