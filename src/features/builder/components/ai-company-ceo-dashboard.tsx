@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AiCompanyDashboard } from "@/services/builder/company.service";
+import type { EmployeeRecommendation } from "@/services/builder/proactive.logic";
 import { CeoApprovalCenter } from "@/features/builder/components/ceo-approval-center";
 import { CollaborationChainView } from "@/features/builder/components/collaboration-chain";
 import { CompanyActivityFeed } from "@/features/builder/components/company-activity-feed";
@@ -13,14 +14,44 @@ import { AutonomousWorkdayPanel } from "@/features/builder/components/autonomous
 import { CompanyMemoryPanel } from "@/features/builder/components/company-memory-panel";
 import { WorkspaceCollaborationPanel } from "@/features/builder/components/workspace-collaboration-panel";
 import { AiCompanyExecutiveDashboard } from "@/features/builder/components/ai-company-executive-dashboard";
-import { AiCompanyLiveOffice } from "@/features/builder/live-office/ai-company-live-office";
+import { HqShell } from "@/features/builder/components/hq-shell";
+import { HqRecommendationCards } from "@/features/builder/components/hq-recommendation-cards";
+import {
+  AiCompanyLiveOffice,
+  useLiveOfficeModel,
+} from "@/features/builder/live-office/ai-company-live-office";
+import { LiveOfficeConversationPanel } from "@/features/builder/live-office/live-office-conversation-panel";
 
 type Props = {
   initial: AiCompanyDashboard;
 };
 
+function relatedRecommendationFor(
+  employeeId: string | null,
+  recommendations: EmployeeRecommendation[]
+): EmployeeRecommendation | null {
+  if (!employeeId) return null;
+  return (
+    recommendations.find(
+      (r) =>
+        (r.status === "pending" || r.status === "questioned") &&
+        (r.conversationOwnerId === employeeId ||
+          r.leadEmployeeId === employeeId ||
+          r.participatingEmployees.some((p) => p.id === employeeId))
+    ) ?? null
+  );
+}
+
 export function AiCompanyCeoDashboard({ initial }: Props) {
   const router = useRouter();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const model = useLiveOfficeModel(initial);
+  const selected = model.employees.find((e) => e.id === selectedId) ?? null;
+  const relatedRec = useMemo(
+    () => relatedRecommendationFor(selectedId, initial.recommendations),
+    [selectedId, initial.recommendations]
+  );
+
   const live =
     initial.pendingApprovals.length > 0 ||
     initial.activeCollaborations.length > 0 ||
@@ -33,134 +64,83 @@ export function AiCompanyCeoDashboard({ initial }: Props) {
     return () => window.clearInterval(id);
   }, [live, router]);
 
+  const workspaceId = initial.workspace.activeWorkspaceId;
+
   return (
-    <div className="space-y-8">
-      <section className="lo-hq-hero">
-        <div className="min-w-0 flex-1">
-          <p className="hq-mono text-xs tracking-[0.2em] text-[var(--hq-signal)] uppercase">
-            WorkPilot OS · Live HQ
-          </p>
-          <h2 className="mt-1 text-2xl font-semibold tracking-tight md:text-3xl">
-            {initial.headline}
-          </h2>
-          {initial.briefing ? (
-            <p className="mt-2 max-w-3xl line-clamp-2 text-sm leading-relaxed text-[var(--hq-muted)]">
-              {initial.briefing}
-            </p>
-          ) : null}
-          <div className="mt-4 flex flex-wrap gap-2 text-xs">
-            <span className="rounded-full bg-[var(--hq-signal-soft)] px-3 py-1 text-[var(--hq-signal)]">
-              {initial.employees.length} AI Employees
-            </span>
-            <span className="rounded-full bg-white px-3 py-1 text-[var(--hq-muted)]">
-              {initial.commandCenter.workday.phaseLabel}
-            </span>
-            <span className="rounded-full bg-white px-3 py-1 text-[var(--hq-muted)]">
-              Health {initial.companyHealth.score}% · {initial.companyHealth.label}
-            </span>
-            <Link
-              href={`/builder/hq/onboarding?workspaceId=${encodeURIComponent(initial.workspace.activeWorkspaceId)}`}
-              className="rounded-full bg-white px-3 py-1 text-[var(--hq-signal)] underline-offset-2 hover:underline"
-            >
-              Launch readiness
-            </Link>
-          </div>
-        </div>
-
-        <aside className="lo-hq-approvals">
-          <p className="hq-mono text-[10px] tracking-[0.18em] text-[var(--hq-warn)] uppercase">
-            Needs approval
-          </p>
-          {initial.pendingApprovals.length === 0 ? (
-            <p className="mt-2 text-sm text-[var(--hq-muted)]">Queue clear.</p>
-          ) : (
-            <ul className="mt-2 space-y-2">
-              {initial.pendingApprovals.slice(0, 3).map((a) => (
-                <li key={a.id} className="rounded-lg bg-white/90 px-2.5 py-2">
-                  <p className="text-sm font-medium leading-snug">{a.title}</p>
-                  <p className="mt-0.5 text-[11px] text-[var(--hq-muted)]">
-                    {a.requestingEmployee.name}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="hq-mono mt-3 text-[10px] text-[var(--hq-muted)]">
-            Updated {initial.generatedAtDisplay}
-          </p>
-        </aside>
-      </section>
-
-      <AiCompanyLiveOffice dashboard={initial} />
-
-      <CeoApprovalCenter items={initial.pendingApprovals} />
-
-      <CeoCommandCenterView commandCenter={initial.commandCenter} />
-
-      <details className="lo-ops">
-        <summary className="lo-ops__summary">
-          <span>
-            <span className="hq-mono text-[10px] tracking-[0.18em] text-[var(--hq-muted)] uppercase">
-              Operations
-            </span>
-            <span className="mt-1 block text-lg font-semibold tracking-tight">
-              Executive, memory, workspace & history
-            </span>
-          </span>
-          <span className="lo-ops__hint text-xs text-[var(--hq-muted)]">Toggle secondary panels</span>
-        </summary>
-
-        <div className="lo-ops__body space-y-10">
+    <HqShell
+      workspaceId={workspaceId}
+      headline={initial.headline}
+      live={live}
+      healthLabel={`Health ${initial.companyHealth.score}% · ${initial.companyHealth.label}`}
+      approvalCount={initial.pendingApprovals.length}
+      ops={
+        <div className="hq-ops-panels space-y-10">
+          <CeoApprovalCenter items={initial.pendingApprovals} />
+          <CeoCommandCenterView commandCenter={initial.commandCenter} />
           <AiCompanyExecutiveDashboard
             initial={initial.executive}
-            workspaceId={initial.workspace.activeWorkspaceId}
+            workspaceId={workspaceId}
           />
-
           <WorkspaceCollaborationPanel
-            activeWorkspaceId={initial.workspace.activeWorkspaceId}
+            activeWorkspaceId={workspaceId}
             workspaces={initial.workspace.workspaces}
             members={initial.workspace.members}
             activityTimeline={initial.workspace.activityTimeline}
             notifications={initial.workspace.notifications}
           />
-
           <AutonomousWorkdayPanel workday={initial.commandCenter.autonomousWorkday} />
-
           <CompanyMemoryPanel
             learnedPreferences={initial.commandCenter.companyMemory.learnedPreferences}
             newInsights={initial.commandCenter.companyMemory.newInsights}
             recentlyUpdated={initial.commandCenter.companyMemory.recentlyUpdated}
             lastLearnedAt={initial.commandCenter.companyMemory.lastLearnedAt}
           />
-
           <div className="grid gap-6 lg:grid-cols-2">
             <CompanyActivityFeed items={initial.activityFeed} />
             <MissionHistoryPanel records={initial.missionHistory} compact />
           </div>
-
           {initial.activeCollaborations.length > 0 ? (
             <section>
-              <h3 className="text-xl font-semibold tracking-tight">Active collaborations</h3>
+              <h3 className="text-xl font-semibold tracking-tight text-white/90">
+                Active collaborations
+              </h3>
               <div className="mt-6 grid gap-4 lg:grid-cols-2">
                 {initial.activeCollaborations.slice(0, 4).map((mission) => (
-                  <div
-                    key={mission.id}
-                    className="rounded-2xl border border-[var(--hq-line)] bg-[var(--hq-panel)] p-5"
-                  >
+                  <div key={mission.id} className="hq-glass-panel p-5">
                     <CollaborationChainView mission={mission} />
                   </div>
                 ))}
               </div>
             </section>
           ) : null}
-
-          <p className="text-center text-xs text-[var(--hq-muted)]">
-            <Link href="/dashboard" className="underline-offset-2 hover:underline">
-              WorkPilot product →
+          <p className="text-center text-xs text-white/45">
+            <Link href="/login" className="underline-offset-2 hover:underline">
+              Owner session →
             </Link>
           </p>
         </div>
-      </details>
-    </div>
+      }
+    >
+      <div className="hq-main">
+        <AiCompanyLiveOffice
+          dashboard={initial}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+        />
+
+        <div className="hq-dock">
+          <HqRecommendationCards
+            recommendations={initial.recommendations}
+            selectedEmployeeId={selectedId}
+            onSelectEmployee={setSelectedId}
+          />
+          <LiveOfficeConversationPanel
+            employee={selected}
+            workspaceId={workspaceId}
+            relatedRecommendation={relatedRec}
+          />
+        </div>
+      </div>
+    </HqShell>
   );
 }

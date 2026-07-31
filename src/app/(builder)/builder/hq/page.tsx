@@ -64,42 +64,17 @@ export default async function BuilderHqPage({ searchParams }: PageProps) {
     error = e instanceof Error ? e.message : "Failed to load AI Company";
   }
 
-  return (
-    <div className="hq-grid min-h-screen">
-      <header className="border-b border-[var(--hq-line)]/80 bg-[var(--hq-panel)]/80 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-[92rem] items-center justify-between gap-6 px-6 py-5">
-          <div>
-            <p className="hq-mono text-xs tracking-[0.22em] text-[var(--hq-signal)] uppercase">
-              AI Company · Live Office
-            </p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--hq-ink)] md:text-3xl">
-              Company headquarters
-            </h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/builder/hq/repository"
-              className="rounded-full border border-[var(--hq-line)] bg-white px-3 py-1 text-xs text-[var(--hq-ink)] underline-offset-2 hover:underline"
-            >
-              WorkPilot repo
-            </Link>
-            <span className="hidden items-center gap-2 rounded-full bg-[var(--hq-signal-soft)] px-3 py-1 text-xs font-medium text-[var(--hq-signal)] sm:inline-flex">
-              <span className="hq-live-dot h-1.5 w-1.5 rounded-full bg-[var(--hq-signal)]" />
-              Company live
-            </span>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-[92rem] px-6 py-6 md:py-8">
-        {error || !company ? (
+  if (error || !company) {
+    return (
+      <div className="hq-grid min-h-screen">
+        <main className="mx-auto max-w-xl px-6 py-24">
           <div className="rounded-2xl border border-[var(--hq-warn)]/30 bg-[var(--hq-warn-soft)] px-5 py-4 text-[var(--hq-warn)]">
             {error ?? "Company unavailable"}
           </div>
-        ) : (
-          <AiCompanyCeoDashboard initial={company} />
-        )}
-      </main>
-    </div>
-  );
+        </main>
+      </div>
+    );
+  }
+
+  return <AiCompanyCeoDashboard initial={company} />;
 }

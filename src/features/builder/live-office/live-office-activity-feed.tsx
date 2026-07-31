@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import type { LiveOfficeActivityItem } from "@/features/builder/live-office/live-office-model";
 
 type Props = {
@@ -7,44 +8,67 @@ type Props = {
 };
 
 const TONE: Record<LiveOfficeActivityItem["tone"], string> = {
-  positive: "bg-emerald-500",
-  attention: "bg-amber-400",
-  neutral: "bg-[var(--hq-muted)]",
+  positive: "lo-channel__tone--positive",
+  attention: "lo-channel__tone--attention",
+  neutral: "lo-channel__tone--neutral",
 };
 
 export function LiveOfficeActivityFeed({ items }: Props) {
+  const seen = useRef<Set<string>>(new Set());
+  const [fresh, setFresh] = useState<Set<string>>(new Set());
+  const booted = useRef(false);
+
+  useEffect(() => {
+    const nextFresh = new Set<string>();
+    for (const item of items) {
+      if (booted.current && !seen.current.has(item.id)) {
+        nextFresh.add(item.id);
+      }
+      seen.current.add(item.id);
+    }
+    booted.current = true;
+    if (nextFresh.size === 0) return;
+    setFresh(nextFresh);
+    const t = window.setTimeout(() => setFresh(new Set()), 900);
+    return () => window.clearTimeout(t);
+  }, [items]);
+
   return (
-    <section className="lo-feed">
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <p className="hq-mono text-[10px] tracking-[0.18em] text-[var(--hq-signal)] uppercase">
-            Live office
-          </p>
-          <h3 className="mt-1 text-lg font-semibold tracking-tight">Floor activity</h3>
+    <aside className="lo-channel" aria-label="Floor channel">
+      <div className="lo-channel__head">
+        <div className="lo-channel__title-row">
+          <span className="lo-channel__wave" aria-hidden />
+          <div>
+            <p className="lo-channel__eyebrow">Floor Channel</p>
+            <h3 className="lo-channel__title">Live activity</h3>
+          </div>
         </div>
-        <span className="hq-live-dot h-2 w-2 rounded-full bg-[var(--hq-signal)]" />
+        <span className="hq-live-dot" />
       </div>
 
       {items.length === 0 ? (
-        <p className="mt-5 text-sm text-[var(--hq-muted)]">
-          Quiet floor — waiting for the next real company event.
-        </p>
+        <p className="lo-channel__empty">Quiet floor — waiting for the next company event.</p>
       ) : (
-        <ul className="mt-4 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
-          {items.map((item) => (
-            <li key={item.id} className="flex items-start gap-3 border-b border-[var(--hq-line)]/50 pb-3 last:border-0">
-              <span
-                className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TONE[item.tone]}`}
-                aria-hidden
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm leading-relaxed text-[var(--hq-ink)]">{item.summary}</p>
-                <p className="hq-mono mt-1 text-[10px] text-[var(--hq-muted)]">{item.atDisplay}</p>
+        <ul className="lo-channel__list">
+          {items.map((item, index) => (
+            <li
+              key={item.id}
+              className={`lo-channel__item${fresh.has(item.id) ? " lo-channel__item--enter" : ""}`}
+              style={{ animationDelay: `${Math.min(index, 6) * 40}ms` }}
+            >
+              <span className={`lo-channel__tone ${TONE[item.tone]}`} aria-hidden />
+              <div className="lo-channel__body">
+                <div className="lo-channel__meta">
+                  <span className="hq-mono lo-channel__time">{item.atDisplay}</span>
+                </div>
+                <p className="lo-channel__summary">{item.summary}</p>
               </div>
             </li>
           ))}
         </ul>
       )}
-    </section>
+
+      <p className="lo-channel__footer">View all activity →</p>
+    </aside>
   );
 }

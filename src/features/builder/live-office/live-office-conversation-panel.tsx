@@ -1,87 +1,216 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 import type { LiveOfficeEmployeeView } from "@/features/builder/live-office/live-office-model";
-import type { LiveOfficeActivityItem } from "@/features/builder/live-office/live-office-model";
+import type { EmployeeRecommendation } from "@/services/builder/proactive.logic";
+import { AI_COMPANY_EMPLOYEES } from "@/services/builder/ai-company-employees";
+
+function delayUntilIso(hoursFromNow: number): string {
+  return new Date(Date.now() + hoursFromNow * 3_600_000).toISOString();
+}
 
 type Props = {
   employee: LiveOfficeEmployeeView | null;
   workspaceId: string;
-  activity: LiveOfficeActivityItem[];
-  onClear?: () => void;
+  relatedRecommendation?: EmployeeRecommendation | null;
 };
 
 export function LiveOfficeConversationPanel({
   employee,
   workspaceId,
-  activity,
-  onClear,
+  relatedRecommendation = null,
 }: Props) {
+  const router = useRouter();
+  const [note, setNote] = useState("");
+  const [reassignTo, setReassignTo] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [swap, setSwap] = useState(false);
+
+  useEffect(() => {
+    setNote("");
+    setReassignTo("");
+    setError(null);
+    setSwap(true);
+    const t = window.setTimeout(() => setSwap(false), 320);
+    return () => window.clearTimeout(t);
+  }, [employee?.id]);
+
+  async function decide(action: "approve" | "reject" | "ask" | "reassign" | "delay") {
+    if (!relatedRecommendation) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch("/api/builder/hq/recommendations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recommendationId: relatedRecommendation.id,
+          action,
+          note: note.trim() || null,
+          reassignToEmployeeId: action === "reassign" ? reassignTo || null : null,
+          delayUntil: action === "delay" ? delayUntilIso(24) : null,
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setError(data.error ?? "Could not update recommendation");
+        return;
+      }
+      setNote("");
+      startTransition(() => router.refresh());
+    } catch {
+      setError("Network error while updating recommendation");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const locked = busy || isPending;
+
   return (
     <aside className="lo-conversation" aria-label="Employee conversation">
       <div className="lo-conversation__head">
-        <div>
-          <p className="hq-mono text-[10px] tracking-[0.18em] text-[var(--hq-signal)] uppercase">
-            Conversation
-          </p>
-          <h3 className="mt-1 text-lg font-semibold tracking-tight">
+        <div className="min-w-0">
+          <p className="lo-conversation__eyebrow">Conversation</p>
+          <h3 className="lo-conversation__title">
             {employee ? employee.name : "Floor channel"}
           </h3>
-          <p className="mt-0.5 text-xs text-[var(--hq-muted)]">
+          <p className="lo-conversation__sub">
             {employee
               ? `${employee.role} · ${employee.visualLabel}`
-              : "Select a desk to follow an employee"}
+              : "Select a desk to open conversation"}
           </p>
         </div>
-        {employee && onClear ? (
-          <button
-            type="button"
-            onClick={onClear}
-            className="rounded-lg border border-[var(--hq-line)] px-2 py-1 text-[11px] text-[var(--hq-muted)]"
+        {employee ? (
+          <span
+            className="lo-conversation__avatar"
+            style={{ backgroundColor: employee.avatar.hue }}
           >
-            Clear
-          </button>
-        ) : (
-          <span className="hq-live-dot h-2 w-2 rounded-full bg-[var(--hq-signal)]" />
-        )}
+            {employee.avatar.initials}
+          </span>
+        ) : null}
       </div>
 
+      <div
+        key={employee?.id ?? "none"}
+        className={`lo-conversation__body-wrap${swap ? " lo-conversation__body-wrap--swap" : ""}`}
+      >
       {employee ? (
         <>
           {employee.conversationPreview.length === 0 ? (
-            <p className="mt-5 text-sm text-[var(--hq-muted)]">
+            <p className="lo-conversation__empty">
               No live conversation turns for this desk yet.
             </p>
           ) : (
             <ul className="lo-conversation__list">
-              {employee.conversationPreview.map((t) => (
+              {employee.conversationPreview.slice(-4).map((t) => (
                 <li key={t.id} className="lo-conversation__turn">
-                  <p className="text-xs font-semibold text-[var(--hq-ink)]">{t.speaker}</p>
-                  <p className="mt-1 text-sm leading-relaxed text-[var(--hq-muted)]">{t.body}</p>
+                  <p className="lo-conversation__speaker">{t.speaker}</p>
+                  <p className="lo-conversation__body">{t.body}</p>
                 </li>
               ))}
             </ul>
           )}
+
+          {relatedRecommendation ? (
+            <div className="lo-conversation__actions">
+              <p className="lo-conversation__rec-title">{relatedRecommendation.title}</p>
+              {error ? <p className="lo-conversation__error">{error}</p> : null}
+              <label className="lo-conversation__reassign">
+                Reassign to
+                <select
+                  value={reassignTo}
+                  onChange={(e) => setReassignTo(e.target.value)}
+                  disabled={locked}
+                >
+                  <option value="">Select employee…</option>
+                  {AI_COMPANY_EMPLOYEES.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.name} · {e.role}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="lo-conversation__btns">
+                <button
+                  type="button"
+                  disabled={locked}
+                  onClick={() => void decide("approve")}
+                  className="lo-btn lo-btn--primary"
+                >
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  disabled={locked}
+                  onClick={() => void decide("ask")}
+                  className="lo-btn lo-btn--ghost"
+                >
+                  Ask questions
+                </button>
+                <button
+                  type="button"
+                  disabled={locked || !reassignTo}
+                  onClick={() => void decide("reassign")}
+                  className="lo-btn lo-btn--ghost"
+                >
+                  Reassign
+                </button>
+                <button
+                  type="button"
+                  disabled={locked}
+                  onClick={() => void decide("delay")}
+                  className="lo-btn lo-btn--ghost"
+                >
+                  Delay
+                </button>
+                <button
+                  type="button"
+                  disabled={locked}
+                  onClick={() => void decide("reject")}
+                  className="lo-btn lo-btn--danger"
+                >
+                  Reject
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="lo-conversation__composer">
+            <input
+              className="lo-conversation__input"
+              placeholder="Ask a follow-up question…"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              disabled={locked || !relatedRecommendation}
+            />
+            <button
+              type="button"
+              className="lo-btn lo-btn--send"
+              disabled={locked || !relatedRecommendation || !note.trim()}
+              onClick={() => void decide("ask")}
+            >
+              Send
+            </button>
+          </div>
+
           <Link
             href={`/builder/hq/employees/${employee.id}?workspaceId=${encodeURIComponent(workspaceId)}`}
-            className="mt-4 inline-flex text-sm text-[var(--hq-signal)] underline-offset-2 hover:underline"
+            className="lo-conversation__profile"
           >
             Open full profile →
           </Link>
         </>
       ) : (
-        <ul className="lo-conversation__list">
-          {activity.slice(0, 10).map((item) => (
-            <li key={item.id} className="lo-conversation__turn">
-              <p className="text-sm leading-relaxed text-[var(--hq-ink)]">{item.summary}</p>
-              <p className="hq-mono mt-1 text-[10px] text-[var(--hq-muted)]">{item.atDisplay}</p>
-            </li>
-          ))}
-          {activity.length === 0 ? (
-            <li className="text-sm text-[var(--hq-muted)]">Quiet floor — waiting for the next event.</li>
-          ) : null}
-        </ul>
+        <p className="lo-conversation__empty">
+          Click any desk in the office to talk with that employee.
+        </p>
       )}
+      </div>
     </aside>
   );
 }

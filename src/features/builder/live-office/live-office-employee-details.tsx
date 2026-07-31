@@ -75,7 +75,7 @@ export function LiveOfficeEmployeeDetails({ employee }: Props) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-semibold tracking-tight">{employee.name}</h3>
-            <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-0.5 text-[11px]">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-[11px]">
               <span aria-hidden>{employee.visualEmoji}</span>
               {employee.visualLabel}
             </span>

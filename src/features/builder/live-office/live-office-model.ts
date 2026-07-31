@@ -72,19 +72,23 @@ export type LiveOfficeModel = {
   generatedAtDisplay: string;
 };
 
-/** Permanent desk map — fixed seats so the office feels stable. */
+/**
+ * Permanent seats — percentages map to office-plate.png:
+ * back row of 3 (farther), front row of 3 (nearer), plus two aisle seats.
+ * Anchor = above each seated employee's head (label floats above, never over monitor).
+ */
 export const LIVE_OFFICE_DESKS: LiveOfficeDesk[] = [
-  { employeeId: "emma", department: "Product", x: 12, y: 28 },
-  { employeeId: "alex", department: "Platform", x: 28, y: 22 },
-  { employeeId: "sarah", department: "Executive", x: 44, y: 28 },
-  { employeeId: "david", department: "Engineering", x: 60, y: 22 },
-  { employeeId: "mia", department: "Engineering", x: 76, y: 28 },
-  { employeeId: "noah", department: "Engineering", x: 20, y: 58 },
-  { employeeId: "olivia", department: "Engineering", x: 44, y: 62 },
-  { employeeId: "ethan", department: "Quality", x: 68, y: 58 },
+  { employeeId: "emma", department: "Product", x: 31, y: 40 },
+  { employeeId: "alex", department: "Platform", x: 49, y: 37 },
+  { employeeId: "sarah", department: "Executive", x: 67, y: 40 },
+  { employeeId: "david", department: "Engineering", x: 35, y: 61 },
+  { employeeId: "mia", department: "Engineering", x: 53, y: 64 },
+  { employeeId: "noah", department: "Engineering", x: 71, y: 61 },
+  { employeeId: "olivia", department: "Engineering", x: 18, y: 48 },
+  { employeeId: "ethan", department: "Quality", x: 85, y: 52 },
 ];
 
-export const CEO_APPROVAL_ZONE = { x: 50, y: 88 };
+export const CEO_APPROVAL_ZONE = { x: 80, y: 76 };
 
 const VISUAL: Record<
   LiveOfficeVisualState,
