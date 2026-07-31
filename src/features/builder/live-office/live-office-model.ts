@@ -78,14 +78,14 @@ export type LiveOfficeModel = {
  * Anchor = above each seated employee's head (label floats above, never over monitor).
  */
 export const LIVE_OFFICE_DESKS: LiveOfficeDesk[] = [
-  { employeeId: "emma", department: "Product", x: 31, y: 40 },
-  { employeeId: "alex", department: "Platform", x: 49, y: 37 },
-  { employeeId: "sarah", department: "Executive", x: 67, y: 40 },
+  { employeeId: "sarah", department: "Product", x: 31, y: 40 },
+  { employeeId: "daniel", department: "Platform", x: 49, y: 37 },
+  { employeeId: "sophia", department: "Executive Engineering", x: 67, y: 40 },
   { employeeId: "david", department: "Engineering", x: 35, y: 61 },
-  { employeeId: "mia", department: "Engineering", x: 53, y: 64 },
-  { employeeId: "noah", department: "Engineering", x: 71, y: 61 },
+  { employeeId: "alex", department: "Engineering", x: 53, y: 64 },
+  { employeeId: "noah", department: "AI Engineering", x: 71, y: 61 },
   { employeeId: "olivia", department: "Engineering", x: 18, y: 48 },
-  { employeeId: "ethan", department: "Quality", x: 85, y: 52 },
+  { employeeId: "emma", department: "Quality", x: 85, y: 52 },
 ];
 
 export const CEO_APPROVAL_ZONE = { x: 80, y: 76 };

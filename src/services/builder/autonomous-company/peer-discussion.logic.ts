@@ -62,12 +62,16 @@ export function runPeerDiscussion(input: {
         : peer.productRole === "devops"
           ? "I'll check release/CI risk before we ask the CEO to approve a deploy."
           : peer.productRole === "cto"
-            ? "I'll flag architectural risk and keep the change branch-scoped."
-            : peer.productRole === "frontend"
-              ? "I'll validate UX impact and keep the UI change reviewable."
-              : peer.productRole === "backend"
-                ? "I'll check API/data contracts and regression surface."
-                : "I'll challenge scope and keep us honest about missing requirements.";
+            ? "I'll align this with technical strategy and keep the change branch-scoped."
+            : peer.productRole === "architect"
+              ? "I'll challenge boundaries and keep the design reviewable."
+              : peer.productRole === "ai_engineer"
+                ? "I'll check AI evaluation evidence and safety rails."
+                : peer.productRole === "frontend"
+                  ? "I'll validate UX impact and keep the UI change reviewable."
+                  : peer.productRole === "backend"
+                    ? "I'll check API/data contracts and regression surface."
+                    : "I'll challenge scope and keep us honest about missing requirements.";
     turns.push({
       employeeId: peer.id,
       employeeName: peer.name,
@@ -128,16 +132,16 @@ export function synthesizePeerDiscussion(input: {
 /** Default collaborators for a discipline-aware peer review (role-validated). */
 export function defaultCollaboratorsFor(ownerEmployeeId: string): string[] {
   const map: Record<string, string[]> = {
-    emma: ["david", "sarah"],
-    alex: ["ethan", "david"],
-    sarah: ["emma", "david"],
-    david: ["noah", "mia"],
-    mia: ["ethan", "emma"],
-    noah: ["ethan", "david"],
-    olivia: ["noah", "ethan"],
-    ethan: ["mia", "noah"],
+    sarah: ["olivia", "sophia"],
+    alex: ["emma", "david"],
+    david: ["emma", "olivia"],
+    noah: ["olivia", "sophia"],
+    olivia: ["david", "alex"],
+    emma: ["alex", "david"],
+    daniel: ["sophia", "david"],
+    sophia: ["olivia", "noah"],
   };
-  const raw = (map[ownerEmployeeId] ?? ["emma"]).filter(
+  const raw = (map[ownerEmployeeId] ?? ["sarah"]).filter(
     (id) => id !== ownerEmployeeId
   );
   return filterValidCollaborators(ownerEmployeeId, raw);

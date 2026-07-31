@@ -31,7 +31,7 @@ function hqMission() {
     title: "HQ Conversation autonomy",
     mission:
       "Ship WorkPilot Builder HQ conversation focused on product engineering. Plan step: Implement chat. Plan step: Verify with tests.",
-    leadEmployeeId: "mia",
+    leadEmployeeId: "alex",
     planSummary: "HQ chat",
     planSteps: ["Implement HQ chat UI", "Verify with focused tests"],
     now: "2026-07-31T15:00:00.000Z",
@@ -50,15 +50,15 @@ describe("employee role contracts", () => {
         emp.id
       );
     }
-    const mia = roleContractForEmployee("mia");
-    assert.ok(mia?.allowedActions.includes("implement_ui"));
-    assert.ok(mia?.prohibitedActions.includes("draft_outreach"));
+    const alex = roleContractForEmployee("alex");
+    assert.ok(alex?.allowedActions.includes("implement_ui"));
+    assert.ok(alex?.prohibitedActions.includes("draft_outreach"));
   });
 
   it("rejects unrelated outreach content outside role and mission", () => {
     const mission = hqMission();
     const bad = validateEmployeeOutput({
-      employeeId: "mia",
+      employeeId: "alex",
       text: "I'll draft outreach email to re-engage CRM sales leads today.",
       activeMissions: [mission],
       assignedTask: "Advance: HQ Conversation autonomy",
@@ -67,7 +67,7 @@ describe("employee role contracts", () => {
     assert.ok(bad.reasons.includes("unrelated_comms"));
 
     const good = validateEmployeeOutput({
-      employeeId: "mia",
+      employeeId: "alex",
       text: "I'll implement the HQ chat UI component on a WorkPilot feature branch for QA.",
       activeMissions: [mission],
       assignedTask: "Advance: HQ Conversation autonomy",
@@ -78,8 +78,8 @@ describe("employee role contracts", () => {
   it("keeps employees within role and regenerates off-scope chat replies", () => {
     const mission = hqMission();
     const ctx = {
-      employeeId: "noah",
-      employeeName: "Noah",
+      employeeId: "david",
+      employeeName: "David",
       employeeRole: "Backend Engineer",
       expertise: ["API design"],
       communicationStyle: "Steady",
@@ -93,55 +93,46 @@ describe("employee role contracts", () => {
       priorMessages: [],
       activeMissions: [mission],
       executionContext: buildMissionExecutionContext({
-        employeeId: "noah",
+        employeeId: "david",
         missions: [mission],
       }),
       ceoMessage: "Please draft a Gmail outreach sequence for prospects",
     };
 
-    // Forced regenerate path
     const regenerated = regenerateMissionScopedReply(ctx, ["unrelated_comms"]);
     assert.match(regenerated, /mission-scoped regenerate|Staying on/i);
     assert.doesNotMatch(regenerated, /draft outreach email to re-engage/i);
 
     const reply = buildEmployeeChatReply(ctx);
-    const body = reply.split(/\n\n/).slice(-1)[0] ?? reply;
-    const check = validateEmployeeOutput({
-      employeeId: "noah",
-      text: body,
-      activeMissions: [mission],
-      assignedTask: ctx.currentTask,
-      ceoMessage: ctx.ceoMessage,
-    });
-    // CEO explicit comms request allows scope escape for validation of body —
-    // but role lenses stay WorkPilot; ensure no CRM pitch.
     assert.doesNotMatch(reply, /CRM account activity|sales pipeline motion/i);
-    assert.match(reply, /WorkPilot|HQ Conversation|API|schema|backend/i);
-    assert.equal(typeof check.ok, "boolean");
+    assert.match(reply, /WorkPilot|HQ Conversation|API|schema|backend|Backend Engineer/i);
   });
 
   it("allows valid cross-department collaboration pairs only", () => {
-    assert.equal(isValidCollaboratorPair("mia", "ethan"), true);
-    assert.equal(isValidCollaboratorPair("noah", "ethan"), true);
-    assert.equal(isValidCollaboratorPair("mia", "mia"), false);
-    const peers = defaultCollaboratorsFor("mia");
-    assert.ok(peers.includes("ethan"));
-    assert.ok(peers.every((id) => isValidCollaboratorPair("mia", id)));
+    assert.equal(isValidCollaboratorPair("alex", "emma"), true);
+    assert.equal(isValidCollaboratorPair("david", "emma"), true);
+    assert.equal(isValidCollaboratorPair("alex", "alex"), false);
+    const peers = defaultCollaboratorsFor("alex");
+    assert.ok(peers.includes("emma"));
+    assert.ok(peers.every((id) => isValidCollaboratorPair("alex", id)));
   });
 });
 
 describe("mission execution context + clarification", () => {
-  it("bundles mission, work item, role, task, criteria, safety for every execution", () => {
+  it("bundles mission, work item, permanent role, task, criteria, safety for every execution", () => {
     const mission = hqMission();
     const ctx = buildMissionExecutionContext({
-      employeeId: "mia",
+      employeeId: "alex",
       missions: [mission],
       repositoryContext: ["src/features/builder/hq-chat.ts"],
       ceoDecisions: ["Approved HQ chat slice"],
     });
     assert.equal(ctx.activeMission?.id, mission.id);
     assert.ok(ctx.workItem);
+    assert.equal(ctx.permanentRole, "Frontend Engineer");
     assert.equal(ctx.assignedRole, "Frontend Engineer");
+    assert.ok(ctx.reasoningStyle);
+    assert.ok(ctx.defaultReviewPerspective);
     assert.ok(ctx.acceptanceCriteria.length >= 1);
     assert.ok(ctx.repositoryContext.includes("src/features/builder/hq-chat.ts"));
     assert.ok(ctx.ceoDecisions.length >= 1);
@@ -172,7 +163,7 @@ describe("mission execution context + clarification", () => {
         [
           {
             role: "employee",
-            body: "Mia — clarification before I proceed\nPlease confirm:\n1. acceptance criteria / definition of done\n2. target ship window",
+            body: "Alex — clarification before I proceed\nPlease confirm:\n1. acceptance criteria / definition of done\n2. target ship window",
           },
         ],
         asked

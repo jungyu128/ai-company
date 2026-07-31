@@ -46,6 +46,8 @@ export {
   isValidCollaboratorPair,
   filterValidCollaborators,
   listEmployeesWithRoleContracts,
+  evaluateRoleMissionFit,
+  stripMissionRoleOverrides,
 } from "./employee-role.logic";
 
 export {

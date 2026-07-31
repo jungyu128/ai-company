@@ -44,8 +44,8 @@ function activityVerb(employee: LiveOfficeEmployeeView): string {
 }
 
 function labelBias(employeeId: string): "left" | "right" | "center" {
-  const left = new Set(["emma", "david", "olivia"]);
-  const right = new Set(["sarah", "noah", "ethan"]);
+  const left = new Set(["sarah", "david", "olivia"]);
+  const right = new Set(["sophia", "noah", "emma"]);
   if (left.has(employeeId)) return "left";
   if (right.has(employeeId)) return "right";
   return "center";

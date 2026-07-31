@@ -20,7 +20,7 @@ type NavItem = {
  */
 const NAV: NavItem[] = [
   { id: "overview", label: "HQ Overview", href: "/builder/hq", match: "exact" },
-  { id: "employees", label: "Employees", href: "/builder/hq/employees/emma", match: "prefix" },
+  { id: "employees", label: "Employees", href: "/builder/hq/employees/sarah", match: "prefix" },
   { id: "tasks", label: "Tasks", opsId: "ops-command" },
   { id: "projects", label: "Projects", opsId: "ops-collaborations" },
   { id: "knowledge", label: "Knowledge", opsId: "ops-memory" },

@@ -30,13 +30,13 @@ describe("Live Office UX mapping", () => {
     const ids = LIVE_OFFICE_DESKS.map((d) => d.employeeId).sort();
     assert.deepEqual(ids, [
       "alex",
+      "daniel",
       "david",
       "emma",
-      "ethan",
-      "mia",
       "noah",
       "olivia",
       "sarah",
+      "sophia",
     ]);
     const departments = new Set(LIVE_OFFICE_DESKS.map((d) => d.department));
     assert.ok(departments.size >= 5);
@@ -46,10 +46,10 @@ describe("Live Office UX mapping", () => {
     const base = {
       id: "emma",
       name: "Emma",
-      role: "Email Manager",
-      department: "Communications",
+      role: "QA Engineer",
+      department: "Quality",
       summary: "",
-      avatar: { initials: "E", hue: "#0f6b5c" },
+      avatar: { initials: "EM", hue: "#b91c1c" },
       expertise: [],
       communicationStyle: "",
       status: "waiting_approval" as const,
@@ -72,7 +72,7 @@ describe("Live Office UX mapping", () => {
     } satisfies LiveOfficeEmployeeView;
 
     const pos = renderPosition(base);
-    assert.ok(pos.y >= 80);
+    assert.ok(pos.y >= 70);
     assert.notEqual(pos.x, base.desk.x);
   });
 

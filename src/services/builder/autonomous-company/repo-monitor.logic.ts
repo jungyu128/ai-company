@@ -109,7 +109,7 @@ export function diffRepoSnapshots(input: {
         summary: `PR#${pr.number} left draft and is ready for review: ${pr.title}`,
         workItem: linkFromPullRequest(pr),
         severity: "attention",
-        ownerEmployeeId: "ethan",
+        ownerEmployeeId: "emma",
       });
     }
   }
@@ -126,7 +126,7 @@ export function diffRepoSnapshots(input: {
       summary: `WorkPilot default branch activity updated (pushedAt ${next.pushedAt}).`,
       workItem: linkFromRepoPush(input.repository),
       severity: "info",
-      ownerEmployeeId: "alex",
+      ownerEmployeeId: "daniel",
     });
   }
 

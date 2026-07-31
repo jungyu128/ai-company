@@ -79,14 +79,14 @@ export type CollaborationMission = {
 };
 
 const DEFAULT_CHAIN_BY_LEAD: Record<string, string[]> = {
-  sarah: ["sarah", "david", "emma"],
-  emma: ["emma"],
-  alex: ["alex", "mia"],
+  sarah: ["sarah", "olivia", "emma"],
+  alex: ["alex", "emma"],
   david: ["david", "emma"],
-  mia: ["mia", "david"],
-  noah: ["noah", "sarah", "emma"],
+  noah: ["noah", "olivia", "sophia"],
   olivia: ["olivia", "david"],
-  ethan: ["ethan", "emma"],
+  emma: ["emma"],
+  daniel: ["daniel", "sophia"],
+  sophia: ["sophia", "olivia", "sarah"],
 };
 
 function stageForIndex(index: number, total: number): CollaborationStageKind {
@@ -117,20 +117,23 @@ export function planCollaborationChain(input: {
   const preferred = DEFAULT_CHAIN_BY_LEAD[leadId] ?? [leadId];
   const orderedIds: string[] = [];
   for (const id of [leadId, ...preferred.filter((p) => p !== leadId), ...inferred]) {
-    if (!orderedIds.includes(id)) orderedIds.push(id);
+    if (!orderedIds.includes(id) && getEmployeeDefinition(id)) orderedIds.push(id);
   }
   // Cap chain length for readability; always end with an approval-capable executor.
   const chainIds = orderedIds.slice(0, 4);
   if (chainIds.length === 1 && leadId !== "emma") {
-    // Many missions finish with email delivery / notification.
+    // Verification handoff when mission mentions notify/email/follow-up.
     const extras = matchEmployeeIdsForText(input.mission);
-    if (extras.includes("emma") || /send|email|notify|follow.?up/i.test(input.mission)) {
-      chainIds.push("emma");
+    if (extras.includes("emma") || /send|email|notify|follow.?up|verify|test/i.test(input.mission)) {
+      if (getEmployeeDefinition("emma")) chainIds.push("emma");
     }
   }
 
   const chain: CollaborationStep[] = chainIds.map((employeeId, index) => {
-    const emp = getEmployeeDefinition(employeeId)!;
+    const emp = getEmployeeDefinition(employeeId);
+    if (!emp) {
+      throw new Error(`Unknown employee in collaboration chain: ${employeeId}`);
+    }
     const stage = stageForIndex(index, chainIds.length);
     const isLead = index === 0;
     const isLast = index === chainIds.length - 1;

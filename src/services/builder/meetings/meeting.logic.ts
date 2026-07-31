@@ -42,15 +42,15 @@ export const MEETING_KIND_LABEL: Record<MeetingKind, string> = {
 
 export function defaultParticipantsForKind(kind: MeetingKind): string[] {
   const map: Record<MeetingKind, string[]> = {
-    sprint_planning: ["emma", "sarah", "david", "mia", "noah", "ethan"],
-    daily_standup: ["emma", "mia", "noah", "ethan", "alex"],
-    architecture_review: ["david", "noah", "mia", "alex"],
-    design_review: ["mia", "emma", "david", "ethan"],
-    qa_review: ["ethan", "mia", "noah", "emma"],
-    release_review: ["alex", "ethan", "david", "sarah"],
-    incident_review: ["alex", "noah", "ethan", "david", "sarah"],
+    sprint_planning: ["sarah", "sophia", "olivia", "alex", "david", "emma"],
+    daily_standup: ["sarah", "alex", "david", "emma", "daniel"],
+    architecture_review: ["olivia", "sophia", "noah", "david", "alex"],
+    design_review: ["alex", "sarah", "olivia", "emma"],
+    qa_review: ["emma", "alex", "david", "sarah"],
+    release_review: ["daniel", "emma", "sophia", "sarah"],
+    incident_review: ["daniel", "noah", "emma", "david", "sophia"],
   };
-  return map[kind] ?? ["emma", "david"];
+  return map[kind] ?? ["sarah", "olivia"];
 }
 
 export function defaultAgendaForKind(

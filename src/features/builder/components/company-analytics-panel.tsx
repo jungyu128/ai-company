@@ -175,7 +175,7 @@ export function CompanyAnalyticsPanel({ workspaceId }: Props) {
                 className="rounded-xl border border-[var(--hq-line)] bg-white px-3 py-2"
                 placeholder={
                   dimension === "employee"
-                    ? "mia"
+                    ? "alex"
                     : dimension === "team"
                       ? "Engineering"
                       : dimension === "sprint"

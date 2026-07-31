@@ -9,7 +9,7 @@ import {
 } from "./discussion-quality.logic";
 import { isEchoOfCeoMessage } from "./conversation-routing.logic";
 import { missionScopeFocusLine } from "./autonomous-company/mission-scope.logic";
-import { validateEmployeeOutput } from "./autonomous-company/employee-role.logic";
+import { validateEmployeeOutput, evaluateRoleMissionFit } from "./autonomous-company/employee-role.logic";
 import { formatMissionExecutionContextBrief } from "./autonomous-company/mission-execution-context.logic";
 import type { MissionExecutionContext } from "./autonomous-company/mission-execution-context.logic";
 import type { CollaborationMission } from "./collaboration.logic";
@@ -108,21 +108,79 @@ function priorBodies(ctx: ChatReplyContext): string[] {
 }
 
 /**
- * Build a contextual employee reply from role, task, mission, memory, and history.
+ * Build a contextual employee reply from permanent role, task, mission, memory, and history.
  * Out-of-scope or off-role output is rejected and regenerated once.
+ * Role conflicts refuse the assignment and recommend the right colleague.
  */
 export function buildEmployeeChatReply(ctx: ChatReplyContext): string {
-  const draft = composeEmployeeChatReplyDraft(ctx);
+  const def = getEmployeeDefinition(ctx.employeeId);
+  const permanentRole = def?.role ?? ctx.employeeRole;
+  const ctxWithRole: ChatReplyContext = {
+    ...ctx,
+    employeeRole: permanentRole,
+    expertise: def?.expertise?.length ? def.expertise : ctx.expertise,
+    communicationStyle: def?.communicationStyle ?? ctx.communicationStyle,
+  };
+
+  if (ctxWithRole.executionContext?.roleConflict.conflict) {
+    return formatRoleRefuseReply(ctxWithRole);
+  }
+
+  const objective = [
+    ctxWithRole.ceoMessage,
+    ctxWithRole.currentTask,
+    ctxWithRole.missionSummary,
+    ctxWithRole.missionTitle,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const fit = evaluateRoleMissionFit({
+    employeeId: ctxWithRole.employeeId,
+    objectiveText: objective,
+  });
+  if (fit.conflict && fit.refuseMessage) {
+    return [
+      `${ctxWithRole.employeeName} (${permanentRole}) — permanent role identity`,
+      def?.reasoningStyle ? `Reasoning: ${truncate(def.reasoningStyle, 120)}` : null,
+      def?.defaultReviewPerspective
+        ? `Review lens: ${truncate(def.defaultReviewPerspective, 120)}`
+        : null,
+      "",
+      fit.refuseMessage,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  const draft = composeEmployeeChatReplyDraft(ctxWithRole);
   const bodyOnly = draft.split(/\n\n/).slice(-1)[0] ?? draft;
   const check = validateEmployeeOutput({
-    employeeId: ctx.employeeId,
+    employeeId: ctxWithRole.employeeId,
     text: bodyOnly,
-    activeMissions: ctx.activeMissions ?? [],
-    assignedTask: ctx.currentTask ?? ctx.missionTitle,
-    ceoMessage: ctx.ceoMessage,
+    activeMissions: ctxWithRole.activeMissions ?? [],
+    assignedTask: ctxWithRole.currentTask ?? ctxWithRole.missionTitle,
+    ceoMessage: ctxWithRole.ceoMessage,
   });
   if (check.ok) return draft;
-  return regenerateMissionScopedReply(ctx, check.reasons);
+  return regenerateMissionScopedReply(ctxWithRole, check.reasons);
+}
+
+function formatRoleRefuseReply(ctx: ChatReplyContext): string {
+  const def = getEmployeeDefinition(ctx.employeeId);
+  const msg =
+    ctx.executionContext?.roleConflict.refuseMessage ??
+    `I must refuse — this objective conflicts with my permanent role (${ctx.employeeRole}).`;
+  return [
+    `${ctx.employeeName} (${ctx.employeeRole}) — permanent role identity`,
+    def?.reasoningStyle ? `Reasoning: ${truncate(def.reasoningStyle, 120)}` : null,
+    def?.defaultReviewPerspective
+      ? `Review lens: ${truncate(def.defaultReviewPerspective, 120)}`
+      : null,
+    "",
+    msg,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function composeEmployeeChatReplyDraft(ctx: ChatReplyContext): string {
@@ -186,13 +244,23 @@ function composeEmployeeChatReplyDraft(ctx: ChatReplyContext): string {
     def?.communicationStyle ?? ctx.communicationStyle ?? "Clear and action-oriented.",
     90
   );
+  const reasoning = def?.reasoningStyle
+    ? truncate(def.reasoningStyle, 100)
+    : null;
+  const review = def?.defaultReviewPerspective
+    ? truncate(def.defaultReviewPerspective, 100)
+    : null;
 
   return [
-    `${ctx.employeeName} (${ctx.employeeRole}) — ${styleHint}`,
+    `${ctx.employeeName} (${def?.role ?? ctx.employeeRole}) — ${styleHint}`,
+    reasoning ? `Reasoning style: ${reasoning}` : null,
+    review ? `Default review: ${review}` : null,
     ...contextLines.slice(0, 5),
     "",
     body,
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /** Regenerate a mission- and role-safe reply after rejecting off-scope content. */
@@ -206,13 +274,14 @@ export function regenerateMissionScopedReply(
     "the active WorkPilot work item";
   const roleFocus =
     ctx.expertise[0] ??
+    ctx.executionContext?.permanentRole ??
     ctx.executionContext?.assignedRole ??
     ctx.employeeRole;
   const body = formatContributionBody({
     observation: `Prior draft was rejected (${reasons.slice(0, 2).join(", ") || "off_scope"}). Staying on ${mission}.`,
     implication:
-      "Off-mission commercial customer-comms work is blocked while this WorkPilot objective is active.",
-    action: `As ${roleFocus}, I'll take one next step only on the assigned WorkPilot task${
+      "Off-mission commercial customer-comms work is blocked while this WorkPilot objective is active. My permanent role is unchanged.",
+    action: `As ${roleFocus}, I'll take one next step only on the assigned WorkPilot objective${
       ctx.currentTask ? ` (${truncate(ctx.currentTask, 80)})` : ""
     }.`,
   });

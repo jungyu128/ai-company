@@ -1,5 +1,6 @@
 /**
  * Maps AI employees onto real WorkPilot development disciplines.
+ * Ownership follows permanent roles — missions do not reassign expertise.
  */
 
 import {
@@ -18,7 +19,7 @@ export type DevOwnership = {
 };
 
 const OWNERSHIP: Record<string, { disciplines: DevDiscipline[]; owns: string[] }> = {
-  emma: {
+  sarah: {
     disciplines: ["product"],
     owns: [
       "requirements",
@@ -28,33 +29,6 @@ const OWNERSHIP: Record<string, { disciplines: DevDiscipline[]; owns: string[] }
     ],
   },
   alex: {
-    disciplines: ["devops"],
-    owns: [
-      "CI/CD readiness",
-      "deployment approvals",
-      "release windows",
-      "environment hygiene",
-    ],
-  },
-  sarah: {
-    disciplines: ["ceo_advisor", "ai"],
-    owns: [
-      "executive recommendations",
-      "AI feature guidance",
-      "stalled decision escalation",
-      "CEO briefings",
-    ],
-  },
-  david: {
-    disciplines: ["architecture", "ai"],
-    owns: [
-      "architecture proposals",
-      "tech risk review",
-      "AI/system design",
-      "pre-PR design review",
-    ],
-  },
-  mia: {
     disciplines: ["frontend", "design"],
     owns: [
       "UI implementation",
@@ -63,17 +37,49 @@ const OWNERSHIP: Record<string, { disciplines: DevDiscipline[]; owns: string[] }
       "frontend QA handoff",
     ],
   },
-  noah: {
+  david: {
     disciplines: ["backend"],
     owns: ["APIs", "services", "typed contracts", "backend bug fixes"],
   },
-  olivia: {
-    disciplines: ["backend"],
-    owns: ["data integrity", "persistence", "schema changes", "finance-critical paths"],
+  noah: {
+    disciplines: ["ai"],
+    owns: [
+      "AI system design",
+      "agent evaluation",
+      "AI safety rails",
+      "model/tool contracts",
+    ],
   },
-  ethan: {
+  olivia: {
+    disciplines: ["architecture"],
+    owns: [
+      "architecture proposals",
+      "system boundaries",
+      "tech risk review",
+      "pre-PR design review",
+    ],
+  },
+  emma: {
     disciplines: ["qa"],
     owns: ["test plans", "regression evidence", "bug reports", "branch verification"],
+  },
+  daniel: {
+    disciplines: ["devops"],
+    owns: [
+      "CI/CD readiness",
+      "deployment approvals",
+      "release windows",
+      "environment hygiene",
+    ],
+  },
+  sophia: {
+    disciplines: ["architecture", "ceo_advisor"],
+    owns: [
+      "technical strategy",
+      "engineering standards",
+      "cross-team sequencing",
+      "CTO risk briefs",
+    ],
   },
 };
 
@@ -106,31 +112,31 @@ export function employeesForDiscipline(discipline: DevDiscipline): AiCompanyEmpl
 
 export function pickOwnerForWork(input: {
   title: string;
-  kind: string;
+  kind?: string | null;
   preferDiscipline?: DevDiscipline;
 }): string {
-  const text = `${input.title} ${input.kind}`.toLowerCase();
+  const text = `${input.title} ${input.kind ?? ""}`.toLowerCase();
   if (input.preferDiscipline) {
     const hit = employeesForDiscipline(input.preferDiscipline)[0];
     if (hit) return hit.id;
   }
-  if (/deploy|ci|release|pipeline|vercel/.test(text)) return "alex";
-  if (/test|qa|regression|bug|failing/.test(text)) return "ethan";
-  if (/ui|ux|css|layout|design|frontend|component/.test(text)) return "mia";
-  if (/api|route|service|prisma|schema|backend/.test(text)) return "noah";
-  if (/data|migration|finance|ledger/.test(text)) return "olivia";
-  if (/architect|design doc|adr|refactor/.test(text)) return "david";
-  if (/ai|llm|agent|embedding/.test(text)) return "sarah";
-  if (/roadmap|requirement|acceptance|product/.test(text)) return "emma";
-  return "emma";
+  if (/deploy|ci|release|pipeline|vercel/.test(text)) return "daniel";
+  if (/test|qa|regression|bug|failing/.test(text)) return "emma";
+  if (/ui|ux|css|layout|design|frontend|component/.test(text)) return "alex";
+  if (/api|route|service|prisma|schema|backend/.test(text)) return "david";
+  if (/architect|design doc|adr|boundary|module/.test(text)) return "olivia";
+  if (/ai|llm|agent|embedding|prompt|model/.test(text)) return "noah";
+  if (/cto|strategy|standards|sequencing/.test(text)) return "sophia";
+  if (/roadmap|requirement|acceptance|product/.test(text)) return "sarah";
+  return "sarah";
 }
 
 export function formatWorkItemLine(workItem: {
   kind: string;
   id: string;
   title: string;
-  refs: string[];
+  refs?: string[];
 }): string {
-  const refs = workItem.refs.length ? workItem.refs.join(", ") : workItem.id;
+  const refs = workItem.refs?.length ? workItem.refs.join(", ") : workItem.id;
   return `[WorkPilot · ${workItem.kind} · ${refs} · ${workItem.title}]`;
 }

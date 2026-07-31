@@ -17,31 +17,32 @@ import {
 } from "@/services/builder/ai-company-employees";
 
 describe("AI Company employee catalog", () => {
-  it("includes the eight named employees", () => {
+  it("includes the eight named employees with permanent roles", () => {
     const ids = AI_COMPANY_EMPLOYEES.map((e) => e.id);
     assert.deepEqual(ids, [
-      "emma",
-      "alex",
       "sarah",
+      "alex",
       "david",
-      "mia",
       "noah",
       "olivia",
-      "ethan",
+      "emma",
+      "daniel",
+      "sophia",
     ]);
   });
 
   it("maps domain text to employees without runtime terms", () => {
-    assert.equal(matchEmployeeIdForText("Gmail AI Employee inbox triage"), "emma");
-    assert.equal(matchEmployeeIdForText("Build Calendar AI Employee v1"), "alex");
-    assert.equal(getEmployeeDefinition("alex")?.role, "DevOps Engineer");
-    assert.equal(getEmployeeDefinition("alex")?.productRole, "devops");
-    assert.equal(getEmployeeDefinition("sarah")?.productRole, "ceo");
-    assert.equal(getEmployeeDefinition("david")?.productRole, "cto");
-    assert.equal(getEmployeeDefinition("mia")?.productRole, "frontend");
-    assert.equal(getEmployeeDefinition("noah")?.productRole, "backend");
-    assert.equal(getEmployeeDefinition("ethan")?.productRole, "qa");
-    assert.equal(getEmployeeDefinition("emma")?.productRole, "product");
+    assert.equal(matchEmployeeIdForText("product requirements acceptance criteria"), "sarah");
+    assert.equal(matchEmployeeIdForText("Build Calendar frontend UI component"), "alex");
+    assert.equal(getEmployeeDefinition("alex")?.role, "Frontend Engineer");
+    assert.equal(getEmployeeDefinition("alex")?.productRole, "frontend");
+    assert.equal(getEmployeeDefinition("sarah")?.productRole, "product");
+    assert.equal(getEmployeeDefinition("sophia")?.productRole, "cto");
+    assert.equal(getEmployeeDefinition("david")?.productRole, "backend");
+    assert.equal(getEmployeeDefinition("noah")?.productRole, "ai_engineer");
+    assert.equal(getEmployeeDefinition("olivia")?.productRole, "architect");
+    assert.equal(getEmployeeDefinition("emma")?.productRole, "qa");
+    assert.equal(getEmployeeDefinition("daniel")?.productRole, "devops");
   });
 
   it("exposes personality fields for each employee", () => {
@@ -50,6 +51,9 @@ describe("AI Company employee catalog", () => {
       assert.ok(emp.expertise.length >= 1);
       assert.ok(emp.communicationStyle.length > 10);
       assert.ok(emp.responsibilities.length >= 1);
+      assert.equal(emp.roleLocked, true);
+      assert.ok(emp.reasoningStyle.length > 10);
+      assert.ok(emp.defaultReviewPerspective.length > 10);
     }
   });
 });

@@ -118,37 +118,37 @@ export function proposeImprovementTasks(input: {
 }): DevTask[] {
   const catalog: Array<{ owner: string; title: string; description: string }> = [
     {
-      owner: "mia",
+      owner: "alex",
       title: "Polish WorkPilot navigation perceived performance",
       description:
         "Audit nav transitions and loading states for the app shell. Need CEO acceptance criteria for desktop vs mobile.",
     },
     {
-      owner: "noah",
+      owner: "david",
       title: "Harden WorkPilot API error contracts",
       description:
         "Normalize public API errors for HQ and product routes without leaking secrets.",
     },
     {
-      owner: "ethan",
+      owner: "emma",
       title: "Expand WorkPilot regression pack for builder HQ",
       description:
         "Add focused tests around chat, approvals, and membership. Need target ship window from CEO.",
     },
     {
-      owner: "alex",
+      owner: "daniel",
       title: "Review WorkPilot deploy readiness checklist",
       description:
         "Check CI/release blockers on the product repo before any production push.",
     },
     {
-      owner: "david",
+      owner: "olivia",
       title: "Architecture note: AI Company ↔ WorkPilot boundary",
       description:
         "Document what stays in ai-company vs workpilot product Feature 38 deferral.",
     },
     {
-      owner: "emma",
+      owner: "sarah",
       title: "Prioritize next WorkPilot beta slice",
       description:
         "Rank the next shippable product slice. Need CEO product priority if roadmap conflict exists.",
