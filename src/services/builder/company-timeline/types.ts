@@ -1,56 +1,13 @@
 /**
- * Company Activity Timeline — typed lifecycle events for AI Company HQ.
+ * Re-export client-safe timeline types for server modules.
+ * Client components must import from `./company-timeline.client` (not this barrel).
  */
 
-export type CompanyTimelineEventKind =
-  | "directive_submitted"
-  | "work_assigned"
-  | "work_started"
-  | "review_started"
-  | "review_completed"
-  | "approval_requested"
-  | "approval_granted"
-  | "work_completed"
-  | "blocked"
-  | "resumed";
+export type {
+  CompanyTimelineEventKind,
+  CompanyTimelineEvent,
+  CompanyTimelineStoreShape,
+  CompanyTimelineView,
+} from "./company-timeline.client";
 
-export type CompanyTimelineEvent = {
-  id: string;
-  kind: CompanyTimelineEventKind;
-  summary: string;
-  at: string;
-  /** Preformatted display timestamp (SSR-safe). */
-  atDisplay: string;
-  actorUserId: string | null;
-  actorName: string;
-  actorRole: "owner" | "ai_employee" | "system";
-  directiveId: string | null;
-  planId: string | null;
-  workItemId: string | null;
-  employeeId: string | null;
-  relatedType: string | null;
-  relatedId: string | null;
-};
-
-export type CompanyTimelineStoreShape = {
-  events: CompanyTimelineEvent[];
-};
-
-export type CompanyTimelineView = {
-  asOf: string;
-  events: CompanyTimelineEvent[];
-  count: number;
-};
-
-export const COMPANY_TIMELINE_LABELS: Record<CompanyTimelineEventKind, string> = {
-  directive_submitted: "Directive submitted",
-  work_assigned: "Work assigned",
-  work_started: "Work started",
-  review_started: "Review started",
-  review_completed: "Review completed",
-  approval_requested: "Approval requested",
-  approval_granted: "Approval granted",
-  work_completed: "Work completed",
-  blocked: "Blocked",
-  resumed: "Resumed",
-};
+export { COMPANY_TIMELINE_LABELS } from "./company-timeline.client";

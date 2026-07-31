@@ -2,6 +2,8 @@
  * Company Activity Timeline — record + list typed lifecycle events.
  */
 
+import "server-only";
+
 import path from "node:path";
 import { formatHqDateTimeDisplay } from "../format-hq-display";
 import { recordWorkspaceEvent } from "../workspace/collaboration-feed";

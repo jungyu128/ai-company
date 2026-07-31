@@ -3,6 +3,8 @@
  * Syncs from Continuous OS; appends timeline when state changes.
  */
 
+import "server-only";
+
 import path from "node:path";
 import { getAutonomyStore } from "../autonomous-company/autonomous-company.store";
 import {

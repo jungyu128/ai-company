@@ -1,3 +1,8 @@
+/**
+ * Client-safe Live Work Tracker exports (types + pure logic).
+ * Server snapshot/sync APIs: import from `./live-work.service` or `./server`.
+ */
+
 export type {
   LiveWorkStatus,
   LiveWorkTrackerEntry,
@@ -19,10 +24,3 @@ export {
   NEXT_ACTION,
   STEP_LABEL,
 } from "./live-work.logic";
-
-export {
-  syncLiveWorkTracker,
-  getLiveWorkTrackerSnapshot,
-  getLiveWorkForEmployee,
-  enrichAndPersistLiveStates,
-} from "./live-work.service";

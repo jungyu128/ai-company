@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { DailyReportView } from "@/services/builder/daily-report";
+import type { DailyReportView } from "@/services/builder/daily-report/types";
 
 type Props = {
   report: DailyReportView | null;

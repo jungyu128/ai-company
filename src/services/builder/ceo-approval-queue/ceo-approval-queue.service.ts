@@ -2,6 +2,8 @@
  * CEO Approval Queue — list every pending approval + route CEO decisions.
  */
 
+import "server-only";
+
 import path from "node:path";
 import { getEmployeeDefinition } from "../ai-company-employees";
 import { decideApproval, listApprovalCenter } from "../approval.service";

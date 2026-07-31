@@ -1,3 +1,10 @@
+/**
+ * Server-only CEO Approval Queue API.
+ * Client components must import types from `./types` only.
+ */
+
+import "server-only";
+
 export type {
   CeoApprovalQueueSource,
   CeoApprovalQueueDecision,

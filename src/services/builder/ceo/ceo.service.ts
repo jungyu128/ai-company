@@ -18,7 +18,7 @@ import {
   getCompanySprint,
   getSprintSnapshot,
 } from "../sprints";
-import { getLiveWorkTrackerSnapshot } from "../live-work-tracker";
+import { getLiveWorkTrackerSnapshot } from "../live-work-tracker/server";
 import { dailyReportViewFromStored } from "../daily-report";
 import { getDailyOpsSnapshot } from "../daily-ops";
 import { listActivity, listAudit } from "../workspace/collaboration-feed";

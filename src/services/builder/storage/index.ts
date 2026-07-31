@@ -7,6 +7,8 @@
  * - Read-only seed from packaged files when a key is cold (no mkdir)
  */
 
+import "server-only";
+
 import fs from "node:fs";
 import path from "node:path";
 import { createMemoryStorage } from "./memory-storage";

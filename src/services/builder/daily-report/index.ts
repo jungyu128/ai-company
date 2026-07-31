@@ -1,3 +1,10 @@
+/**
+ * Server-only Daily Report API.
+ * Client components must import types from `./types` only.
+ */
+
+import "server-only";
+
 export type {
   DailyReportWorkEntry,
   DailyReportBlockerEntry,

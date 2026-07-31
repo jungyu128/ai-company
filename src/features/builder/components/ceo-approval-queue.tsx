@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import type { CeoApprovalQueueItem } from "@/services/builder/ceo-approval-queue";
+import type { CeoApprovalQueueItem } from "@/services/builder/ceo-approval-queue/types";
 
 type Props = {
   items: CeoApprovalQueueItem[];

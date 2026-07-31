@@ -9,7 +9,7 @@ import { publicApiError } from "@/services/builder/hardening/redaction";
 import {
   getLiveWorkTrackerSnapshot,
   syncLiveWorkTracker,
-} from "@/services/builder/live-work-tracker";
+} from "@/services/builder/live-work-tracker/server";
 
 export const runtime = "nodejs";
 

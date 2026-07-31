@@ -2,6 +2,8 @@
  * Persist last live-work fingerprints for change detection / timeline sync.
  */
 
+import "server-only";
+
 import path from "node:path";
 import { opsRel } from "../workspace/paths";
 import { DEFAULT_WORKSPACE_ID } from "../workspace/types";

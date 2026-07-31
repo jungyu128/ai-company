@@ -4,7 +4,7 @@ import {
   COMPANY_TIMELINE_LABELS,
   type CompanyTimelineEvent,
   type CompanyTimelineEventKind,
-} from "@/services/builder/company-timeline";
+} from "@/services/builder/company-timeline/company-timeline.client";
 
 type Props = {
   events: CompanyTimelineEvent[];

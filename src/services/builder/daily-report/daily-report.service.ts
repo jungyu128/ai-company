@@ -2,6 +2,8 @@
  * Daily Report — read/parse end-of-execution reports without inventing fields.
  */
 
+import "server-only";
+
 import path from "node:path";
 import { formatHqDateTimeDisplay } from "../format-hq-display";
 import { getDailyOpsSnapshot } from "../daily-ops/daily-ops.service";

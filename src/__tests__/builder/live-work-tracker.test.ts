@@ -11,9 +11,11 @@ import {
   buildLiveWorkTrackerSnapshot,
   enrichEmployeeLiveState,
   progressForStatus,
+} from "@/services/builder/live-work-tracker";
+import {
   syncLiveWorkTracker,
   getLiveWorkTrackerSnapshot,
-} from "@/services/builder/live-work-tracker";
+} from "@/services/builder/live-work-tracker/server";
 import {
   createEmployeeWork,
   deriveEmployeeLiveStates,

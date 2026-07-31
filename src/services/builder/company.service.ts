@@ -61,9 +61,9 @@ import { getExecutiveDashboard } from "./ceo/ceo.service";
 import type { ExecutiveDashboard } from "./ceo/types";
 import {
   cardStatusFromLiveWork,
-  getLiveWorkTrackerSnapshot,
   type LiveWorkTrackerEntry,
 } from "./live-work-tracker";
+import { getLiveWorkTrackerSnapshot } from "./live-work-tracker/server";
 
 export type CompanyWorkItem = {
   id: string;
