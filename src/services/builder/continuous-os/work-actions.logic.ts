@@ -16,6 +16,7 @@ export function createEmployeeWork(input: {
   ownerEmployeeId?: string;
   workItem?: WorkItemLink | null;
   now: string;
+  sprintId?: string | null;
 }): DevTask {
   return proposeDevTask({
     title: input.title,
@@ -24,6 +25,7 @@ export function createEmployeeWork(input: {
     workItem: input.workItem,
     now: input.now,
     status: "proposed",
+    sprintId: input.sprintId ?? null,
   });
 }
 
@@ -49,12 +51,14 @@ export function splitDevTask(input: {
       workItem: input.task.workItem,
       now: input.now,
       status: "proposed",
+      sprintId: input.task.sprintId,
     }),
     id: allocateDevTaskId(new Date(input.now)),
     collaboratorIds: defaultCollaboratorsFor(secondaryOwner).filter(
       (id) => id !== secondaryOwner
     ),
     progressNote: `Split from ${input.task.id}`,
+    sprintId: input.task.sprintId,
   };
 
   const primary: DevTask = {

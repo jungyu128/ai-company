@@ -5,6 +5,7 @@
 import { getEmployeeDefinition } from "../ai-company-employees";
 import type { DevTask, PeerDiscussion, PeerDiscussionTurn, WorkItemLink } from "./types";
 import { formatWorkItemLine } from "./dev-ownership.logic";
+import { filterValidCollaborators } from "./employee-role.logic";
 
 function newId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -17,7 +18,7 @@ function offsetIso(base: string, seconds: number): string {
 }
 
 /**
- * Run a short peer discussion among collaborators, then synthesize for the CEO.
+ * Run a short peer discussion among valid collaborators, then synthesize for the CEO.
  */
 export function runPeerDiscussion(input: {
   task: DevTask;
@@ -25,7 +26,10 @@ export function runPeerDiscussion(input: {
   topic?: string;
 }): PeerDiscussion {
   const owner = getEmployeeDefinition(input.task.ownerEmployeeId);
-  const peers = input.task.collaboratorIds
+  const peers = filterValidCollaborators(
+    input.task.ownerEmployeeId,
+    input.task.collaboratorIds
+  )
     .map((id) => getEmployeeDefinition(id))
     .filter((e): e is NonNullable<typeof e> => Boolean(e))
     .slice(0, 2);
@@ -113,15 +117,15 @@ export function synthesizePeerDiscussion(input: {
   if (input.missingRequirements.length > 0) {
     return `${workLine}\n${input.ownerName} discussed with ${peers}. We will not assume. Missing from CEO: ${input.missingRequirements.join(
       "; "
-    )}. Topic: ${input.topic}`;
+    )}. Stay on this WorkPilot work item — no unrelated email, outreach, CRM, or sales work. Topic: ${input.topic}`;
   }
   if (input.blocker) {
-    return `${workLine}\n${input.ownerName} discussed with ${peers}. Blocker: ${input.blocker}. Asking CEO for a decision path.`;
+    return `${workLine}\n${input.ownerName} discussed with ${peers}. Blocker: ${input.blocker}. Asking CEO for a decision path while staying on the current WorkPilot objective.`;
   }
-  return `${workLine}\n${input.ownerName} aligned with ${peers} on "${input.topic}". Ready to report to the CEO with a clear recommendation.`;
+  return `${workLine}\n${input.ownerName} aligned with ${peers} on "${input.topic}" for this WorkPilot work item only. Stay on the current objective — no unrelated email, outreach, CRM, or sales work. Ready to report to the CEO with a clear recommendation.`;
 }
 
-/** Default collaborators for a discipline-aware peer review. */
+/** Default collaborators for a discipline-aware peer review (role-validated). */
 export function defaultCollaboratorsFor(ownerEmployeeId: string): string[] {
   const map: Record<string, string[]> = {
     emma: ["david", "sarah"],
@@ -133,5 +137,8 @@ export function defaultCollaboratorsFor(ownerEmployeeId: string): string[] {
     olivia: ["noah", "ethan"],
     ethan: ["mia", "noah"],
   };
-  return (map[ownerEmployeeId] ?? ["emma"]).filter((id) => id !== ownerEmployeeId);
+  const raw = (map[ownerEmployeeId] ?? ["emma"]).filter(
+    (id) => id !== ownerEmployeeId
+  );
+  return filterValidCollaborators(ownerEmployeeId, raw);
 }

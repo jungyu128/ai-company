@@ -26,7 +26,7 @@ const NAV: NavItem[] = [
   { id: "knowledge", label: "Knowledge", opsId: "ops-memory" },
   { id: "communications", label: "Communications", opsId: "ops-activity" },
   { id: "calendar", label: "Calendar", opsId: "ops-workday" },
-  { id: "analytics", label: "Analytics", opsId: "ops-executive" },
+  { id: "analytics", label: "Analytics", opsId: "ops-analytics" },
   { id: "approvals", label: "Approvals", opsId: "ops-approvals" },
   { id: "integrations", label: "Integrations", href: "/builder/hq/repository", match: "prefix" },
   { id: "settings", label: "Settings", href: "/builder/hq/onboarding", match: "prefix" },

@@ -40,11 +40,18 @@ function fileFor(workspaceId: string) {
   return opsRel(AUTONOMY_FILE, workspaceId);
 }
 
+function normalizeTask(task: DevTask): DevTask {
+  return {
+    ...task,
+    sprintId: task.sprintId ?? null,
+  };
+}
+
 function readStore(root: string, workspaceId: string): StoreShape {
   const parsed = readJson<StoreShape>(root, fileFor(workspaceId), emptyStore());
   if (!parsed || !Array.isArray(parsed.tasks)) return emptyStore();
   return {
-    tasks: parsed.tasks,
+    tasks: parsed.tasks.map((t) => normalizeTask(t as DevTask)),
     discussions: Array.isArray(parsed.discussions) ? parsed.discussions : [],
     reports: Array.isArray(parsed.reports) ? parsed.reports : [],
     repoChanges: Array.isArray(parsed.repoChanges) ? parsed.repoChanges : [],

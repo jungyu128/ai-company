@@ -3,8 +3,10 @@ import { getAuthContext, unauthorized } from "@/lib/auth";
 import {
   applyCeoPlanningAction,
   generateExecutiveReports,
+  getCeoDashboardDrill,
   getExecutiveDashboard,
   runAiCeoCycle,
+  type CeoDashboardDrillSection,
 } from "@/services/builder/ceo";
 import {
   ensureHqAccess,
@@ -13,8 +15,22 @@ import {
 
 export const runtime = "nodejs";
 
+const DRILL_SECTIONS = new Set<CeoDashboardDrillSection>([
+  "health",
+  "workload",
+  "active_work",
+  "blocked_work",
+  "sprint",
+  "meeting",
+  "risk",
+  "approval",
+  "decision",
+  "kpi",
+]);
+
 /**
- * GET /api/builder/hq/executive — AI CEO Executive Dashboard.
+ * GET /api/builder/hq/executive — AI CEO Executive Dashboard (real-time).
+ * GET /api/builder/hq/executive?section=…&id=… — drill into a dashboard item.
  */
 export async function GET(request: Request) {
   const auth = await getAuthContext();
@@ -26,6 +42,38 @@ export async function GET(request: Request) {
       { ok: false, code: access.code, error: access.message },
       { status: access.status }
     );
+  }
+
+  const url = new URL(request.url);
+  const section = url.searchParams.get("section")?.trim() ?? "";
+  const id = url.searchParams.get("id")?.trim() ?? "";
+  if (section) {
+    if (!DRILL_SECTIONS.has(section as CeoDashboardDrillSection)) {
+      return NextResponse.json(
+        { ok: false, code: "INVALID", error: "Unknown drill section" },
+        { status: 400 }
+      );
+    }
+    const result = getCeoDashboardDrill({
+      section: section as CeoDashboardDrillSection,
+      id,
+      workspaceId: access.ctx.workspaceId,
+    });
+    if (!result.ok) {
+      return NextResponse.json(
+        { ok: false, code: result.code, error: result.message },
+        { status: result.status }
+      );
+    }
+    return NextResponse.json({
+      ok: true,
+      drill: result.drill,
+      meta: {
+        productData: false,
+        customerData: false,
+        aiCeoApprovesWrites: false,
+      },
+    });
   }
 
   const dashboard = getExecutiveDashboard({

@@ -36,6 +36,12 @@ import {
 } from "./discussion-quality.logic";
 import { getConnectionStatusesSync } from "./execution/connection-status";
 import {
+  activeMissionsRequireComms,
+  isUnrelatedCommercialComms,
+  listActiveWorkpilotMissions,
+  missionCorpus,
+} from "./autonomous-company/mission-scope.logic";
+import {
   applyDecisionPackageToRecommendation,
   buildRecommendationDecisionPackage,
   type EvidenceSummary,
@@ -318,9 +324,10 @@ export function detectProactiveSignals(ctx: DetectionContext): ProactiveSignal[]
       });
     }
 
-    // Cross-domain: sales without email/doc follow-through → opportunity cluster
+    // Cross-domain outreach only when the active mission itself requires customer comms.
     if (
       mission.leadEmployeeId === "sarah" &&
+      isUnrelatedCommercialComms(missionCorpus(mission)) &&
       !mission.chain.some((c) => c.employeeId === "emma")
     ) {
       push({
@@ -352,19 +359,38 @@ export function detectProactiveSignals(ctx: DetectionContext): ProactiveSignal[]
     });
   }
 
-  // Baseline continuous domain watch (deterministic, no external product data).
+  // Baseline continuous domain watch — suppressed while a WorkPilot mission is active
+  // unless that mission explicitly requires commercial / communication work.
+  const active = listActiveWorkpilotMissions(ctx.missions);
+  const allowCommsBaselines =
+    active.length === 0 || activeMissionsRequireComms(active);
   const day = now.slice(0, 10);
   const baselines: Array<Omit<ProactiveSignal, "detectedAt">> = [
-    {
-      id: signalId("emma", "unanswered_email", day),
-      employeeId: "emma",
-      kind: "unanswered_email",
-      category: "alert",
-      title: "Unanswered emails need triage",
-      detail: "Emma reviewed the executive inbox and found threads without a reply.",
-      severity: 3,
-      sourceMissionId: null,
-    },
+    ...(allowCommsBaselines
+      ? [
+          {
+            id: signalId("emma", "unanswered_email", day),
+            employeeId: "emma",
+            kind: "unanswered_email" as const,
+            category: "alert" as const,
+            title: "Unanswered emails need triage",
+            detail:
+              "Emma reviewed the executive inbox and found threads without a reply.",
+            severity: 3 as const,
+            sourceMissionId: null,
+          },
+          {
+            id: signalId("sarah", "inactive_customer", day),
+            employeeId: "sarah",
+            kind: "inactive_customer" as const,
+            category: "opportunity" as const,
+            title: "Inactive customers to re-engage",
+            detail: "Sarah spotted accounts with no recent sales motion.",
+            severity: 3 as const,
+            sourceMissionId: null,
+          },
+        ]
+      : []),
     {
       id: signalId("alex", "overdue_meeting", day),
       employeeId: "alex",
@@ -372,17 +398,7 @@ export function detectProactiveSignals(ctx: DetectionContext): ProactiveSignal[]
       category: "risk",
       title: "Overdue meeting follow-ups",
       detail: "Alex found meetings that still lack notes or next steps.",
-      severity: 3,
-      sourceMissionId: null,
-    },
-    {
-      id: signalId("sarah", "inactive_customer", day),
-      employeeId: "sarah",
-      kind: "inactive_customer",
-      category: "opportunity",
-      title: "Inactive customers to re-engage",
-      detail: "Sarah spotted accounts with no recent sales motion.",
-      severity: 3,
+      severity: 3 as const,
       sourceMissionId: null,
     },
     {
@@ -392,12 +408,23 @@ export function detectProactiveSignals(ctx: DetectionContext): ProactiveSignal[]
       category: "risk",
       title: "Expired documents in the library",
       detail: "David found documents past their review date.",
-      severity: 2,
+      severity: 2 as const,
       sourceMissionId: null,
     },
   ];
 
-  for (const b of baselines) {
+  // Drop calendar/doc baselines that are unrelated when locked on a pure engineering mission.
+  const scopedBaselines =
+    active.length > 0 && !activeMissionsRequireComms(active)
+      ? baselines.filter(
+          (b) =>
+            b.kind !== "overdue_meeting" &&
+            b.kind !== "expired_document" &&
+            !isUnrelatedCommercialComms(`${b.title} ${b.detail}`)
+        )
+      : baselines;
+
+  for (const b of scopedBaselines) {
     push({ ...b, detectedAt: now });
   }
 

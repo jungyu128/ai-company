@@ -8,6 +8,11 @@ import {
   buildOwnerOpeningParts,
 } from "./discussion-quality.logic";
 import { isEchoOfCeoMessage } from "./conversation-routing.logic";
+import { missionScopeFocusLine } from "./autonomous-company/mission-scope.logic";
+import { validateEmployeeOutput } from "./autonomous-company/employee-role.logic";
+import { formatMissionExecutionContextBrief } from "./autonomous-company/mission-execution-context.logic";
+import type { MissionExecutionContext } from "./autonomous-company/mission-execution-context.logic";
+import type { CollaborationMission } from "./collaboration.logic";
 
 export type HqChatRole = "ceo" | "employee" | "system";
 
@@ -54,6 +59,10 @@ export type ChatReplyContext = {
   knowledgeHints: string[];
   recentActivity: string[];
   priorMessages: Array<{ role: HqChatRole; body: string }>;
+  /** Active WorkPilot missions — replies must stay on these objectives. */
+  activeMissions?: CollaborationMission[];
+  /** Full mission execution context for role + scope enforcement. */
+  executionContext?: MissionExecutionContext | null;
   ceoMessage: string;
   relatedRecommendationTitle?: string | null;
   relatedRecommendationBody?: string | null;
@@ -100,8 +109,23 @@ function priorBodies(ctx: ChatReplyContext): string[] {
 
 /**
  * Build a contextual employee reply from role, task, mission, memory, and history.
+ * Out-of-scope or off-role output is rejected and regenerated once.
  */
 export function buildEmployeeChatReply(ctx: ChatReplyContext): string {
+  const draft = composeEmployeeChatReplyDraft(ctx);
+  const bodyOnly = draft.split(/\n\n/).slice(-1)[0] ?? draft;
+  const check = validateEmployeeOutput({
+    employeeId: ctx.employeeId,
+    text: bodyOnly,
+    activeMissions: ctx.activeMissions ?? [],
+    assignedTask: ctx.currentTask ?? ctx.missionTitle,
+    ceoMessage: ctx.ceoMessage,
+  });
+  if (check.ok) return draft;
+  return regenerateMissionScopedReply(ctx, check.reasons);
+}
+
+function composeEmployeeChatReplyDraft(ctx: ChatReplyContext): string {
   const ceoMessage = ctx.ceoMessage.trim() || "What should I know right now?";
   const def = getEmployeeDefinition(ctx.employeeId);
   const parts = buildOwnerOpeningParts(ctx.employeeId, {
@@ -113,30 +137,36 @@ export function buildEmployeeChatReply(ctx: ChatReplyContext): string {
 
   if (isEchoOfCeoMessage(ceoMessage, body)) {
     body = formatContributionBody({
-      observation: `I'm reviewing this through my ${ctx.expertise[0]?.toLowerCase() ?? "domain"} lens.`,
+      observation: `I'm reviewing this through my ${ctx.expertise[0]?.toLowerCase() ?? "WorkPilot"} lens.`,
       implication: "Restating the ask would not move the decision forward.",
-      action: "I'll answer with one concrete next step from my current work.",
+      action: "I'll answer with one concrete next step on the active WorkPilot work item.",
     });
   }
 
   const contextLines: string[] = [];
-  if (ctx.workItemLine) {
-    contextLines.push(ctx.workItemLine);
-  }
-  if (ctx.ownershipSummary) {
-    contextLines.push(`Ownership: ${truncate(ctx.ownershipSummary, 140)}`);
-  }
-  if (ctx.currentTask) {
-    contextLines.push(`Current task: ${truncate(ctx.currentTask, 120)}`);
-  } else if (ctx.currentActivity) {
-    contextLines.push(`Current focus: ${truncate(ctx.currentActivity, 120)}`);
-  }
-  if (ctx.missionTitle) {
+  if (ctx.executionContext) {
     contextLines.push(
-      `Assigned mission: ${truncate(ctx.missionTitle, 80)}${
-        ctx.missionSummary ? ` — ${truncate(ctx.missionSummary, 100)}` : ""
-      }`
+      ...formatMissionExecutionContextBrief(ctx.executionContext).slice(0, 5)
     );
+  } else {
+    if (ctx.workItemLine) contextLines.push(ctx.workItemLine);
+    if (ctx.ownershipSummary) {
+      contextLines.push(`Ownership: ${truncate(ctx.ownershipSummary, 140)}`);
+    }
+    if (ctx.currentTask) {
+      contextLines.push(`Current task: ${truncate(ctx.currentTask, 120)}`);
+    } else if (ctx.currentActivity) {
+      contextLines.push(`Current focus: ${truncate(ctx.currentActivity, 120)}`);
+    }
+    if (ctx.missionTitle) {
+      contextLines.push(
+        `Assigned mission: ${truncate(ctx.missionTitle, 80)}${
+          ctx.missionSummary ? ` — ${truncate(ctx.missionSummary, 100)}` : ""
+        }`
+      );
+    }
+    const scopeLine = missionScopeFocusLine(ctx.activeMissions ?? []);
+    if (scopeLine) contextLines.push(scopeLine);
   }
   if (ctx.relatedRecommendationTitle) {
     contextLines.push(
@@ -157,14 +187,47 @@ export function buildEmployeeChatReply(ctx: ChatReplyContext): string {
     90
   );
 
-  const framing = [
+  return [
     `${ctx.employeeName} (${ctx.employeeRole}) — ${styleHint}`,
-    ...contextLines.slice(0, 4),
+    ...contextLines.slice(0, 5),
     "",
     body,
-  ];
+  ].join("\n");
+}
 
-  return framing.join("\n");
+/** Regenerate a mission- and role-safe reply after rejecting off-scope content. */
+export function regenerateMissionScopedReply(
+  ctx: ChatReplyContext,
+  reasons: string[]
+): string {
+  const mission =
+    ctx.activeMissions?.[0]?.title ??
+    ctx.missionTitle ??
+    "the active WorkPilot work item";
+  const roleFocus =
+    ctx.expertise[0] ??
+    ctx.executionContext?.assignedRole ??
+    ctx.employeeRole;
+  const body = formatContributionBody({
+    observation: `Prior draft was rejected (${reasons.slice(0, 2).join(", ") || "off_scope"}). Staying on ${mission}.`,
+    implication:
+      "Off-mission commercial customer-comms work is blocked while this WorkPilot objective is active.",
+    action: `As ${roleFocus}, I'll take one next step only on the assigned WorkPilot task${
+      ctx.currentTask ? ` (${truncate(ctx.currentTask, 80)})` : ""
+    }.`,
+  });
+
+  return [
+    `${ctx.employeeName} (${ctx.employeeRole}) — mission-scoped regenerate`,
+    ...(ctx.executionContext
+      ? formatMissionExecutionContextBrief(ctx.executionContext).slice(0, 4)
+      : [
+          missionScopeFocusLine(ctx.activeMissions ?? []) ??
+            `Stay on active WorkPilot objective: ${mission}`,
+        ]),
+    "",
+    body,
+  ].join("\n");
 }
 
 /**

@@ -39,6 +39,9 @@ export function proposeDevTask(input: {
   workItem?: WorkItemLink | null;
   now: string;
   status?: DevTask["status"];
+  missionCorpus?: string | null;
+  repositoryEvidence?: string[] | null;
+  sprintId?: string | null;
 }): DevTask {
   const ownerEmployeeId =
     input.ownerEmployeeId ??
@@ -49,6 +52,8 @@ export function proposeDevTask(input: {
   const missingRequirements = detectMissingRequirements({
     title: input.title,
     description: input.description,
+    missionCorpus: input.missionCorpus,
+    repositoryEvidence: input.repositoryEvidence,
   });
   return {
     id: allocateDevTaskId(new Date(input.now)),
@@ -61,6 +66,7 @@ export function proposeDevTask(input: {
       input.status ??
       (missingRequirements.length > 0 ? "needs_clarification" : "proposed"),
     workItem,
+    sprintId: input.sprintId ?? null,
     missingRequirements,
     progressNote: null,
     blocker: null,
@@ -75,6 +81,7 @@ export function proposeTasksFromMissions(input: {
   missions: CollaborationMission[];
   existingTaskIds: Set<string>;
   now: string;
+  sprintId?: string | null;
 }): DevTask[] {
   const out: DevTask[] = [];
   for (const mission of input.missions) {
@@ -90,6 +97,8 @@ export function proposeTasksFromMissions(input: {
       now: input.now,
       status:
         mission.approvalStatus === "pending" ? "awaiting_ceo" : "in_progress",
+      missionCorpus: `${mission.title}\n${mission.mission}\n${mission.planSummary}\n${(mission.planSteps ?? []).join("\n")}\n${mission.ceoNote ?? ""}`,
+      sprintId: input.sprintId ?? null,
     });
     // Stable dedupe key embedded via description tag for store merge
     out.push({
@@ -105,6 +114,7 @@ export function proposeTasksFromMissions(input: {
 export function proposeImprovementTasks(input: {
   now: string;
   existingTitles: Set<string>;
+  sprintId?: string | null;
 }): DevTask[] {
   const catalog: Array<{ owner: string; title: string; description: string }> = [
     {
@@ -155,6 +165,7 @@ export function proposeImprovementTasks(input: {
         ownerEmployeeId: item.owner,
         workItem: defaultWorkpilotFeatureLink(item.title),
         now: input.now,
+        sprintId: input.sprintId ?? null,
       })
     );
   }

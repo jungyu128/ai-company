@@ -16,6 +16,12 @@ import {
   type GithubRepoMetadata,
 } from "../../github";
 import {
+  clarificationAlreadyAsked,
+  detectMissingRequirements,
+} from "./work-items.logic";
+import { listActiveWorkpilotMissions, isWithinActiveMissionScope, missionCorpus } from "./mission-scope.logic";
+import { getActiveCompanySprint } from "../sprints";
+import {
   proposeImprovementTasks,
   proposeTasksFromMissions,
   reportFromRepoChange,
@@ -38,7 +44,6 @@ import type {
   RepoSnapshot,
   WorkItemLink,
 } from "./types";
-import { requirementsLookIncomplete } from "./work-items.logic";
 import { listDevOwnership } from "./dev-ownership.logic";
 import {
   appendChatMessages,
@@ -71,29 +76,47 @@ export function runAutonomousCompanyCycle(input?: {
   const now = input?.now ?? new Date().toISOString();
   const store = getAutonomyStore(root, workspaceId);
   const missions = listCollaborations(root, workspaceId);
+  const activeMissions = listActiveWorkpilotMissions(missions);
 
   const existingIds = new Set(store.tasks.map((t) => t.id));
   const existingTitles = new Set(
     store.tasks.map((t) => t.title.toLowerCase())
   );
 
+  const activeSprint = getActiveCompanySprint({
+    repoRoot: root,
+    workspaceId,
+  });
+  const sprintId = activeSprint?.id ?? null;
+
   const fromMissions = proposeTasksFromMissions({
-    missions,
+    missions: activeMissions,
     existingTaskIds: existingIds,
     now,
+    sprintId,
   });
+  // When a WorkPilot mission is active, do not invent unrelated improvement work.
   const improvements =
-    fromMissions.length > 0
+    fromMissions.length > 0 || activeMissions.length > 0
       ? []
-      : proposeImprovementTasks({ now, existingTitles });
+      : proposeImprovementTasks({ now, existingTitles, sprintId }).filter((t) =>
+          isWithinActiveMissionScope(
+            `${t.title} ${t.description}`,
+            activeMissions
+          )
+        );
 
-  const tasksCreated = [...fromMissions, ...improvements];
+  const tasksCreated = [...fromMissions, ...improvements].filter((t) =>
+    isWithinActiveMissionScope(`${t.title} ${t.description}`, activeMissions)
+  );
   if (tasksCreated.length) {
     upsertDevTasks(tasksCreated, root, workspaceId);
   }
 
   const activeTasks = getAutonomyStore(root, workspaceId).tasks.filter(
-    (t) => t.status !== "done"
+    (t) =>
+      t.status !== "done" &&
+      isWithinActiveMissionScope(`${t.title} ${t.description}`, activeMissions)
   );
 
   const discussions: AutonomyCycleResult["discussions"] = [];
@@ -373,6 +396,7 @@ export function maybeClarificationReply(input: {
   ceoMessage: string;
   repoRoot?: string;
   workspaceId?: string;
+  priorMessages?: Array<{ role: string; body: string }>;
 }): string | null {
   const ctx = getEmployeeDevContext(input);
   const task =
@@ -381,7 +405,17 @@ export function maybeClarificationReply(input: {
     null;
   if (!task || !ctx.primaryWorkItem) return null;
 
-  // If the CEO already provided concrete requirements, proceed without re-asking.
+  const root = path.resolve(input.repoRoot ?? process.cwd());
+  const workspaceId = input.workspaceId ?? DEFAULT_WORKSPACE_ID;
+  const missions = listCollaborations(root, workspaceId);
+  const active = listActiveWorkpilotMissions(missions);
+  const missionCorpusText = active.map(missionCorpus).join("\n");
+  const repoEvidence = [
+    ...task.workItem.refs,
+    task.progressNote ?? "",
+    ...(ctx.ownership?.owns ?? []),
+  ].filter(Boolean);
+
   const ceo = input.ceoMessage.trim();
   if (
     ceo.length >= 48 &&
@@ -392,28 +426,43 @@ export function maybeClarificationReply(input: {
     return null;
   }
 
-  const incomplete =
-    task.missingRequirements.length > 0 ||
-    requirementsLookIncomplete({
-      title: task.title,
-      description: task.description,
-      ceoMessage: input.ceoMessage,
-      knownMissing: task.missingRequirements,
-    });
-  if (!incomplete) return null;
+  const needed = detectMissingRequirements({
+    title: task.title,
+    description: task.description,
+    ceoMessage: input.ceoMessage,
+    missionCorpus: missionCorpusText,
+    repositoryEvidence: repoEvidence,
+  });
 
-  const missing =
+  // Group: keep only stored misses that are still unresolved, else fresh list.
+  const finalMissing = (
     task.missingRequirements.length > 0
-      ? task.missingRequirements
-      : [
-          "acceptance criteria / definition of done",
-          "clarified scope (remove TBD / open questions)",
-        ];
+      ? task.missingRequirements.filter((m) =>
+          needed.some(
+            (n) =>
+              n === m ||
+              n.toLowerCase().includes(m.toLowerCase().slice(0, 12)) ||
+              m.toLowerCase().includes(n.toLowerCase().slice(0, 12))
+          )
+        )
+      : needed
+  ).slice(0, 4);
+
+  if (finalMissing.length === 0) return null;
+
+  const prior =
+    input.priorMessages ??
+    getChatThread(input.employeeId, root, workspaceId).messages.map((m) => ({
+      role: m.role,
+      body: m.body,
+    }));
+  if (clarificationAlreadyAsked(prior, finalMissing)) return null;
+
   const emp = getEmployeeDefinition(input.employeeId);
   return buildClarificationChatBody({
     employeeName: emp?.name ?? input.employeeId,
     workItem: task.workItem,
-    missingRequirements: missing,
+    missingRequirements: finalMissing,
     ceoMessage: input.ceoMessage,
   });
 }

@@ -5,15 +5,31 @@
 import { AI_COMPANY_EMPLOYEES } from "../ai-company-employees";
 import { listApprovalCenter } from "../approval.service";
 import { listCollaborations, upsertCollaboration } from "../collaboration.store";
+import { getAutonomyStore } from "../autonomous-company/autonomous-company.store";
 import { getConnectionStatusesSync } from "../execution/connection-status";
 import { listExecutionHistory } from "../execution/execution.service";
 import { formatHqDateTimeDisplay } from "../format-hq-display";
 import { isInternalAiCompanyEnabled } from "../internal-ai-company";
+import { listCompanyMeetings, getCompanyMeeting } from "../meetings";
 import { listMemories } from "../memory/memory.store";
 import { computeWorkloads } from "../orchestrator.logic";
+import {
+  getCompanySprint,
+  getSprintSnapshot,
+} from "../sprints";
+import { listActivity, listAudit } from "../workspace/collaboration-feed";
 import { DEFAULT_WORKSPACE_ID } from "../workspace/types";
 import { getAutonomousWorkday } from "../workday/workday.service";
 import { persistCeoCycle, readCeoStore } from "./ceo.store";
+import {
+  buildActiveWorkItems,
+  buildBlockedWorkItems,
+  buildMeetingSummaries,
+  buildRecentDecisions,
+  buildSprintProgressPanel,
+  drillHref,
+  employeeName,
+} from "./dashboard-panels";
 import { buildHealthSnapshot } from "./health";
 import {
   applyReassignmentRecommendation,
@@ -23,7 +39,12 @@ import {
 import { buildExecutiveReport } from "./reports";
 import { detectOperationalRisks } from "./risks";
 import { assertAiCeoCannotApproveWrites, getAiCeoSafetyGuarantees } from "./safety";
-import type { ExecutiveDashboard, ExecutiveReport } from "./types";
+import type {
+  CeoDashboardDrillResult,
+  CeoDashboardDrillSection,
+  ExecutiveDashboard,
+  ExecutiveReport,
+} from "./types";
 
 export type RunAiCeoOptions = {
   workspaceId?: string;
@@ -207,6 +228,7 @@ export function runAiCeoCycle(options?: RunAiCeoOptions): ExecutiveDashboard {
     kpiHistory: store.kpiHistory.slice(0, 30),
     reports: store.reports,
     now,
+    repoRoot: root,
   });
 }
 
@@ -246,6 +268,7 @@ export function getExecutiveDashboard(options?: {
     kpiHistory: store.kpiHistory.slice(0, 30),
     reports: store.reports,
     now: store.healthSnapshots[0].createdAt,
+    repoRoot: root,
   });
 }
 
@@ -320,6 +343,7 @@ function toDashboard(input: {
   kpiHistory: ExecutiveDashboard["kpiHistory"];
   reports: ExecutiveReport[];
   now: string;
+  repoRoot: string;
 }): ExecutiveDashboard {
   const accepted = input.memories.filter((m) => m.ceoStatus === "accepted");
   const pending = input.memories.filter((m) => m.ceoStatus === "pending");
@@ -329,6 +353,20 @@ function toDashboard(input: {
       : Math.round(
           input.memories.reduce((s, m) => s + m.confidence, 0) / input.memories.length
         );
+
+  const tasks = getAutonomyStore(input.repoRoot, input.workspaceId).tasks;
+  const sprintSnap = getSprintSnapshot({
+    repoRoot: input.repoRoot,
+    workspaceId: input.workspaceId,
+    now: input.now,
+  });
+  const meetings = listCompanyMeetings({
+    repoRoot: input.repoRoot,
+    workspaceId: input.workspaceId,
+    limit: 20,
+  });
+  const activity = listActivity(input.workspaceId, input.repoRoot, 40);
+  const audits = listAudit(input.workspaceId, input.repoRoot, 40);
 
   return {
     generatedAt: input.now,
@@ -341,13 +379,25 @@ function toDashboard(input: {
       id: a.id,
       title: a.title,
       owner: a.requestingEmployee.name,
+      href: drillHref("approval", a.id),
     })),
     missionProgress: input.missions.slice(0, 20).map((m) => ({
       id: m.id,
       title: m.title,
       status: m.approvalStatus,
       lead: AI_COMPANY_EMPLOYEES.find((e) => e.id === m.leadEmployeeId)?.name ?? m.leadEmployeeId,
+      href: drillHref("active_work", m.id),
     })),
+    activeWork: buildActiveWorkItems(tasks),
+    blockedWork: buildBlockedWorkItems(tasks),
+    sprintProgress: buildSprintProgressPanel({
+      active: sprintSnap.active,
+      metrics: sprintSnap.metrics,
+      plannedCount: sprintSnap.planned.length,
+      completedCount: sprintSnap.completed.length,
+    }),
+    meetingSummaries: buildMeetingSummaries(meetings),
+    recentDecisions: buildRecentDecisions({ activity, audits }),
     executionSuccessRate: input.executionsSuccessRate,
     connectorStatus: input.connections.map((c) => ({
       system: c.system,
@@ -384,6 +434,203 @@ function toDashboard(input: {
   };
 }
 
+/**
+ * Drill into a single CEO Dashboard item for detail view.
+ */
+export function getCeoDashboardDrill(input: {
+  section: CeoDashboardDrillSection;
+  id: string;
+  workspaceId?: string;
+  repoRoot?: string;
+}):
+  | { ok: true; drill: CeoDashboardDrillResult }
+  | { ok: false; code: string; message: string; status: number } {
+  assertAiCeoCannotApproveWrites();
+  const workspaceId = input.workspaceId ?? DEFAULT_WORKSPACE_ID;
+  const root = input.repoRoot ?? process.cwd();
+  const dash = getExecutiveDashboard({
+    workspaceId,
+    repoRoot: root,
+    refresh: true,
+  });
+
+  switch (input.section) {
+    case "health":
+    case "kpi":
+      return {
+        ok: true,
+        drill: {
+          section: input.section,
+          id: input.id || dash.health.id,
+          title: `Company health ${dash.health.score} (${dash.health.label})`,
+          detail: {
+            health: dash.health,
+            kpis: dash.health.kpis,
+            kpiHistory: dash.kpiHistory.slice(0, 10),
+          },
+        },
+      };
+    case "workload": {
+      const w = dash.workloads.find((x) => x.employeeId === input.id);
+      if (!w) {
+        return { ok: false, code: "NOT_FOUND", message: "Employee workload not found", status: 404 };
+      }
+      const owned = getAutonomyStore(root, workspaceId).tasks.filter(
+        (t) => t.ownerEmployeeId === input.id && t.status !== "done"
+      );
+      return {
+        ok: true,
+        drill: {
+          section: "workload",
+          id: w.employeeId,
+          title: `${w.employeeName} workload`,
+          detail: { workload: w, openTasks: owned },
+        },
+      };
+    }
+    case "active_work":
+    case "blocked_work": {
+      const task = getAutonomyStore(root, workspaceId).tasks.find(
+        (t) => t.id === input.id
+      );
+      if (!task) {
+        const mission = listCollaborations(root, workspaceId).find(
+          (m) => m.id === input.id
+        );
+        if (!mission) {
+          return { ok: false, code: "NOT_FOUND", message: "Work item not found", status: 404 };
+        }
+        return {
+          ok: true,
+          drill: {
+            section: input.section,
+            id: mission.id,
+            title: mission.title,
+            detail: { mission },
+          },
+        };
+      }
+      return {
+        ok: true,
+        drill: {
+          section: input.section,
+          id: task.id,
+          title: task.title,
+          detail: {
+            task,
+            owner: employeeName(task.ownerEmployeeId),
+          },
+        },
+      };
+    }
+    case "sprint": {
+      const sprint = getCompanySprint({
+        sprintId: input.id,
+        repoRoot: root,
+        workspaceId,
+      });
+      if (!sprint) {
+        return { ok: false, code: "NOT_FOUND", message: "Sprint not found", status: 404 };
+      }
+      return {
+        ok: true,
+        drill: {
+          section: "sprint",
+          id: sprint.id,
+          title: sprint.name,
+          detail: {
+            sprint,
+            panel: dash.sprintProgress,
+          },
+        },
+      };
+    }
+    case "meeting": {
+      const meeting = getCompanyMeeting({
+        meetingId: input.id,
+        repoRoot: root,
+        workspaceId,
+      });
+      if (!meeting) {
+        return { ok: false, code: "NOT_FOUND", message: "Meeting not found", status: 404 };
+      }
+      return {
+        ok: true,
+        drill: {
+          section: "meeting",
+          id: meeting.id,
+          title: meeting.title,
+          detail: {
+            meeting: {
+              id: meeting.id,
+              kind: meeting.kind,
+              status: meeting.status,
+              purpose: meeting.purpose,
+              synthesis: meeting.synthesis,
+              decisions: meeting.decisions,
+              actionItems: meeting.actionItems,
+              participants: meeting.participantIds.map(employeeName),
+              workItemTitle: meeting.workItemTitle,
+            },
+          },
+        },
+      };
+    }
+    case "risk": {
+      const risk = dash.risks.find((r) => r.id === input.id);
+      if (!risk) {
+        return { ok: false, code: "NOT_FOUND", message: "Risk not found", status: 404 };
+      }
+      return {
+        ok: true,
+        drill: {
+          section: "risk",
+          id: risk.id,
+          title: risk.title,
+          detail: { risk },
+        },
+      };
+    }
+    case "approval": {
+      const approval = dash.approvalQueue.find((a) => a.id === input.id);
+      if (!approval) {
+        return { ok: false, code: "NOT_FOUND", message: "Approval not found", status: 404 };
+      }
+      return {
+        ok: true,
+        drill: {
+          section: "approval",
+          id: approval.id,
+          title: approval.title,
+          detail: { approval, href: "#ops-approvals" },
+        },
+      };
+    }
+    case "decision": {
+      const decision = dash.recentDecisions.find((d) => d.id === input.id);
+      if (!decision) {
+        return { ok: false, code: "NOT_FOUND", message: "Decision not found", status: 404 };
+      }
+      return {
+        ok: true,
+        drill: {
+          section: "decision",
+          id: decision.id,
+          title: decision.summary,
+          detail: { decision },
+        },
+      };
+    }
+    default:
+      return {
+        ok: false,
+        code: "INVALID",
+        message: "Unknown drill section",
+        status: 400,
+      };
+  }
+}
+
 function emptyDashboard(workspaceId: string, now?: string): ExecutiveDashboard {
   const at = now ?? new Date().toISOString();
   const health = buildHealthSnapshot({
@@ -413,6 +660,16 @@ function emptyDashboard(workspaceId: string, now?: string): ExecutiveDashboard {
     workloads: [],
     approvalQueue: [],
     missionProgress: [],
+    activeWork: [],
+    blockedWork: [],
+    sprintProgress: {
+      active: null,
+      plannedCount: 0,
+      completedCount: 0,
+      items: [],
+    },
+    meetingSummaries: [],
+    recentDecisions: [],
     executionSuccessRate: 70,
     connectorStatus: [],
     memoryGrowth: { total: 0, pending: 0, accepted: 0, avgConfidence: 0 },

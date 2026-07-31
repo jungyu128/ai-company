@@ -19,12 +19,27 @@ import {
   deriveEmployeeLiveStates,
   nextWorkState,
 } from "./employee-state.logic";
+import { listActiveWorkpilotMissions } from "../autonomous-company/mission-scope.logic";
+import { linkFromMission } from "../autonomous-company/work-items.logic";
+import { listCollaborations } from "../collaboration.store";
+import { autoCreateNeededMeetings } from "../meetings";
+import { runCalendarMaintenance } from "../calendar";
+import { recordCompanyAnalyticsSample } from "../analytics";
 import {
-  advanceTaskForState,
+  recordLongTermMemory,
+  summarizeCompanyMemory,
+} from "../memory/memory.service";
+import {
+  ensureTasksBelongToSprint,
+  getActiveCompanySprint,
+  getPrioritizedSprintTasks,
+} from "../sprints";
+import {
   createEmployeeWork,
   delegateDevTask,
   requestReview,
   splitDevTask,
+  advanceTaskForState,
 } from "./work-actions.logic";
 import {
   appendOsDecisions,
@@ -149,14 +164,53 @@ export function runContinuousOsTick(input?: {
           deliverToChat: input?.deliverToChat !== false,
         });
 
-  let tasks = getAutonomyStore(root, workspaceId).tasks;
+  // Meetings: employees auto-create + discuss before CEO when WorkPilot signals need it
+  autoCreateNeededMeetings({
+    repoRoot: root,
+    workspaceId,
+    now,
+  });
+
+  // Calendar: reserve focus time, link meetings, detect conflicts + propose alternatives
+  runCalendarMaintenance({
+    repoRoot: root,
+    workspaceId,
+    now,
+  });
+
+  // Analytics: append observe-only KPI sample (does not alter work / execution)
+  recordCompanyAnalyticsSample({
+    repoRoot: root,
+    workspaceId,
+    now,
+  });
+
+  // Compress old long-term memories so future discussions use summaries
+  summarizeCompanyMemory({
+    repoRoot: root,
+    workspaceId,
+    now,
+    olderThanDays: 21,
+  });
+
+  // Sprint management: orphan work items join active/planned sprint; prioritize in-sprint work
+  ensureTasksBelongToSprint({ repoRoot: root, workspaceId, now });
+  const activeSprint = getActiveCompanySprint({ repoRoot: root, workspaceId });
+
+  let tasks = getPrioritizedSprintTasks({ repoRoot: root, workspaceId });
+  if (!tasks.length) {
+    tasks = getAutonomyStore(root, workspaceId).tasks;
+  }
   const decisions: OsDecision[] = [];
   let tasksCreated = 0;
   let tasksSplit = 0;
   let tasksDelegated = 0;
   let reviewsRequested = 0;
 
-  // Idle employees independently create WorkPilot work when the floor is quiet.
+  // Idle employees: when a mission is active, only create work on that WorkPilot objective.
+  const activeMissions = listActiveWorkpilotMissions(
+    listCollaborations(root, workspaceId)
+  );
   const liveBefore = deriveEmployeeLiveStates({
     tasks,
     previous: store.employeeStates,
@@ -172,6 +226,39 @@ export function runContinuousOsTick(input?: {
   for (const emp of idle.slice(0, 2)) {
     const def = getEmployeeDefinition(emp.employeeId);
     if (!def) continue;
+
+    if (activeMissions.length > 0) {
+      const mission = activeMissions[emp.priority % activeMissions.length]!;
+      const title = `Support: ${mission.title} — ${def.role}`;
+      if (tasks.some((t) => t.title === title && t.status !== "done")) continue;
+      const created = createEmployeeWork({
+        title,
+        description: `Stay on active WorkPilot mission ${mission.id}: ${mission.mission}`,
+        ownerEmployeeId: emp.employeeId,
+        workItem: linkFromMission(mission),
+        now,
+        sprintId: activeSprint?.id ?? null,
+      });
+      tasks = upsertTaskList(tasks, [created]);
+      if (activeSprint) {
+        ensureTasksBelongToSprint({ repoRoot: root, workspaceId, now });
+      }
+      tasksCreated += 1;
+      decisions.push({
+        id: newDecisionId(),
+        kind: "create_work",
+        at: now,
+        actorRole: "ai_employee",
+        actorId: emp.employeeId,
+        actorName: emp.employeeName,
+        summary: `${emp.employeeName} created scoped work on ${mission.id}: ${created.title}`,
+        taskId: created.id,
+        employeeId: emp.employeeId,
+        workItemId: created.workItem.id,
+      });
+      continue;
+    }
+
     const title = `Advance WorkPilot — ${def.role} continuous slice`;
     if (tasks.some((t) => t.title === title && t.status !== "done")) continue;
     const created = createEmployeeWork({
@@ -179,6 +266,7 @@ export function runContinuousOsTick(input?: {
       description: `${def.name} independently plans the next WorkPilot improvement in ${def.productRole}. Need clear acceptance criteria before ship.`,
       ownerEmployeeId: emp.employeeId,
       now,
+      sprintId: activeSprint?.id ?? null,
     });
     tasks = upsertTaskList(tasks, [created]);
     tasksCreated += 1;
@@ -196,9 +284,10 @@ export function runContinuousOsTick(input?: {
     });
   }
 
-  // Advance / collaborate on active tasks (respect interrupts).
-  const byOwner = new Map<string, DevTask[]>();
-  for (const task of tasks.filter((t) => t.status !== "done")) {
+  // Advance / collaborate on active tasks (respect interrupts); prefer sprint priority order
+  const prioritizedOwned = prioritizeOwnedTasks(tasks, activeSprint?.id ?? null);
+  const byOwner = new Map<string, typeof tasks>();
+  for (const task of prioritizedOwned.filter((t) => t.status !== "done")) {
     const list = byOwner.get(task.ownerEmployeeId) ?? [];
     list.push(task);
     byOwner.set(task.ownerEmployeeId, list);
@@ -207,9 +296,7 @@ export function runContinuousOsTick(input?: {
   const updates: DevTask[] = [];
   for (const emp of liveBefore) {
     if (emp.interrupted) continue;
-    const owned = (byOwner.get(emp.employeeId) ?? []).sort((a, b) =>
-      a.updatedAt.localeCompare(b.updatedAt)
-    );
+    const owned = byOwner.get(emp.employeeId) ?? [];
     const task = owned[0];
     if (!task) continue;
 
@@ -327,6 +414,49 @@ export function runContinuousOsTick(input?: {
 
   for (const d of decisions) {
     recordDecision(d, workspaceId, root);
+    if (d.kind === "request_review") {
+      recordLongTermMemory({
+        record: {
+          kind: "review",
+          title: d.summary,
+          insight: d.summary,
+          employeeIds: d.employeeId ? [d.employeeId] : [],
+          projectKey: "workpilot",
+          workItemId: d.workItemId,
+          occurredAt: now,
+          sourceRefs: [d.id, d.taskId ?? ""].filter(Boolean),
+          tags: ["review", "continuous_os"],
+          confidence: 68,
+          patternKey: `ltm:review:${d.taskId ?? d.id}`,
+        },
+        repoRoot: root,
+        workspaceId,
+        now,
+      });
+    }
+  }
+
+  // Persist blockers from live employee state
+  for (const s of stateUpdates) {
+    if (s.state !== "Blocked" || !s.note) continue;
+    recordLongTermMemory({
+      record: {
+        kind: "blocker",
+        title: `Blocker: ${s.employeeName}`,
+        insight: s.note,
+        employeeIds: [s.employeeId],
+        projectKey: "workpilot",
+        workItemId: s.activeTaskId,
+        occurredAt: now,
+        sourceRefs: [s.activeTaskId ?? s.employeeId],
+        tags: ["blocker", "continuous_os"],
+        confidence: 70,
+        patternKey: `ltm:blocker:${s.employeeId}:${(s.activeTaskId ?? "none").slice(0, 24)}`,
+      },
+      repoRoot: root,
+      workspaceId,
+      now,
+    });
   }
 
   logOpsEvent({
@@ -353,6 +483,20 @@ function upsertTaskList(tasks: DevTask[], updates: DevTask[]): DevTask[] {
   const byId = new Map(tasks.map((t) => [t.id, t]));
   for (const u of updates) byId.set(u.id, u);
   return [...byId.values()];
+}
+
+/** Keep sprint members first; preserve getPrioritizedSprintTasks order within band. */
+function prioritizeOwnedTasks(
+  tasks: DevTask[],
+  activeSprintId: string | null
+): DevTask[] {
+  if (!activeSprintId) return tasks;
+  const inSprint = (t: DevTask) => t.sprintId === activeSprintId;
+  // Stable partition: in-sprint first, relative order unchanged.
+  return [
+    ...tasks.filter(inSprint),
+    ...tasks.filter((t) => !inSprint(t)),
+  ];
 }
 
 /**

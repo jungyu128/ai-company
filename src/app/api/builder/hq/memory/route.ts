@@ -4,6 +4,7 @@ import {
   decideMemory,
   getCompanyMemoryDashboard,
   resetCompanyMemory,
+  searchCompanyMemory,
 } from "@/services/builder/memory/memory.service";
 import {
   ensureHqAccess,
@@ -14,6 +15,7 @@ export const runtime = "nodejs";
 
 /**
  * GET /api/builder/hq/memory — company memory dashboard.
+ * Optional search: ?employeeId=&projectKey=&workItemId=&from=&to=&q=&kind=
  */
 export async function GET(request: Request) {
   const auth = await getAuthContext();
@@ -25,6 +27,35 @@ export async function GET(request: Request) {
       { ok: false, code: access.code, error: access.message },
       { status: access.status }
     );
+  }
+
+  const url = new URL(request.url);
+  const employeeId = url.searchParams.get("employeeId");
+  const projectKey = url.searchParams.get("projectKey");
+  const workItemId = url.searchParams.get("workItemId");
+  const from = url.searchParams.get("from");
+  const to = url.searchParams.get("to");
+  const q = url.searchParams.get("q");
+  const kind = url.searchParams.get("kind");
+  const hasSearch = Boolean(
+    employeeId || projectKey || workItemId || from || to || q || kind
+  );
+
+  if (hasSearch) {
+    const results = searchCompanyMemory({
+      workspaceId: access.ctx.workspaceId,
+      query: {
+        employeeId,
+        projectKey,
+        workItemId,
+        from,
+        to,
+        q,
+        kind: kind as never,
+        limit: 40,
+      },
+    });
+    return NextResponse.json({ ok: true, results, count: results.length });
   }
 
   return NextResponse.json({

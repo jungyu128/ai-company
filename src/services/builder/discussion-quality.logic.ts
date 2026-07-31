@@ -54,74 +54,74 @@ const GENERIC_PHRASES = [
   "let me know",
 ];
 
-/** Domain lenses keyed by employee id — observation / implication / action. */
+/** Domain lenses keyed by employee id — WorkPilot product-engineering focus. */
 const DOMAIN_LENSES: Record<
   string,
   { observation: string; implication: string; action: string }
 > = {
   alex: {
     observation:
-      "Calendar timing shows a conflict window and limited focus availability this week.",
+      "WorkPilot CI/release signals show build or deploy-readiness gaps on this mission.",
     implication:
-      "Pushing this forward without a schedule check risks double-booking and delayed decisions.",
+      "Pushing without a readiness check risks a blocked pipeline or unsafe release.",
     action:
-      "Reserve a conflict-free block and confirm attendee availability before execution.",
+      "Run a build/deploy readiness check and list blockers before any CEO deploy ask.",
   },
   mia: {
     observation:
-      "Meeting prep still needs a clear agenda, attendee list, and follow-up owner.",
+      "WorkPilot UI work still needs a clear screen, component boundary, and QA handoff.",
     implication:
-      "Without agenda discipline, decisions stall and post-meeting actions get lost.",
+      "Without UI scope discipline, the feature branch drifts and review stalls.",
     action:
-      "Draft a three-point agenda and assign follow-ups before the session starts.",
+      "Implement the scoped UI slice on a feature branch and note repro steps for QA.",
   },
   sarah: {
     observation:
-      "Sales pipeline signals point to an account with open revenue opportunity and rising priority.",
+      "The WorkPilot decision package still needs a clear recommendation and approval ask.",
     implication:
-      "Delaying outreach lowers close probability and weakens account momentum.",
+      "Without an owner-ready brief, execution waits and risks stay unowned.",
     action:
-      "Prioritize that account in today's pipeline motion and define the next commercial step.",
+      "Assemble one CEO recommendation with tradeoffs, risks, and the exact approval needed.",
   },
   david: {
     observation:
-      "Document readiness is incomplete — the brief or proposal pack is not yet CEO-ready.",
+      "Architecture and implementation planning for this WorkPilot mission is incomplete.",
     implication:
-      "Outreach or decisions made without a finished document create rework and mixed messaging.",
+      "Coding before a bounded plan creates rework and unsafe branch scope.",
     action:
-      "Produce a concise brief/proposal draft and mark it ready for approval review.",
+      "Draft a concise architecture/implementation plan scoped to the active work item.",
   },
   emma: {
     observation:
-      "Email follow-up needs a defined recipient, tone, and send window for the draft.",
+      "Product requirements and acceptance criteria for this WorkPilot slice are incomplete.",
     implication:
-      "Vague outreach timing or tone risks missed replies and executive inbox noise.",
+      "Building without criteria forces assumptions and duplicate clarification later.",
     action:
-      "Prepare a draft with recipient + tone notes and queue it for approval before send.",
+      "Write acceptance criteria and priority for the active mission only.",
   },
   noah: {
     observation:
-      "CRM account activity and relationship signals look incomplete or stale on this thread.",
+      "WorkPilot API/data contracts for this mission still need a typed, safe boundary.",
     implication:
-      "Acting without record hygiene can mis-prioritize accounts and break follow-up continuity.",
+      "Shipping without contract clarity creates regressions and review blockers.",
     action:
-      "Refresh the account record fields and surface the latest relationship signal for the owner.",
+      "Implement the scoped API/schema change on a feature branch with test hooks.",
   },
   olivia: {
     observation:
-      "Finance view shows budget exposure and an unclear expected return on this motion.",
+      "WorkPilot data integrity for this mission needs a persistence/validation check.",
     implication:
-      "Proceeding without a cost/return check may create financial risk or weak ROI.",
+      "Skipping data checks risks silent corruption or billing/digest errors.",
     action:
-      "Attach a lightweight budget/return note before the owner finalizes the recommendation.",
+      "Validate the data path and note schema-safe constraints for Backend/DevOps.",
   },
   ethan: {
     observation:
-      "Support queue pressure and escalation risk are elevated for the related customer path.",
+      "Verification coverage for this WorkPilot change is incomplete or unproven.",
     implication:
-      "Ignoring ticket urgency can hurt satisfaction and force a harder escalation later.",
+      "Approving without evidence raises release risk.",
     action:
-      "Flag urgency, draft a customer-safe response path, and note escalation criteria.",
+      "Add a focused test plan and report pass/fail evidence for the active work item.",
   },
 };
 
@@ -131,67 +131,67 @@ const OWNER_OPENERS: Record<
 > = {
   sarah: {
     observation:
-      "I'll review this against pipeline momentum and account priority signals.",
+      "I'll review this against WorkPilot mission goals and open approval risks.",
     implication:
-      "Without a clear commercial next step, recoverable revenue can slip.",
+      "Without a clear decision package, the owner cannot approve safely.",
     action:
-      "I'll return one sales recommendation with confidence and risks after any needed domain checks.",
+      "I'll return one WorkPilot recommendation with confidence and risks.",
   },
   emma: {
     observation:
-      "I'll review follow-up timing, recipient fit, and draft tone for this outreach.",
+      "I'll review requirements, priority, and acceptance criteria for this WorkPilot slice.",
     implication:
-      "Weak timing or tone slows replies and adds noise to the approval queue.",
+      "Weak criteria force assumptions and slow engineering handoff.",
     action:
-      "I'll return one email recommendation after any needed specialist input.",
+      "I'll return one product recommendation scoped to the active mission.",
   },
   alex: {
     observation:
-      "I'll review the recommendation against schedule capacity and conflict risk.",
+      "I'll review CI/build and deploy-readiness for this WorkPilot change.",
     implication:
-      "Unresolved timing issues create cascading delays for the rest of the plan.",
+      "Unresolved pipeline risk blocks a safe release path.",
     action:
-      "I'll give you one scheduling-aware recommendation with confidence and risks.",
+      "I'll give one release-readiness recommendation — no auto-deploy.",
   },
   david: {
     observation:
-      "I'll check whether the supporting brief or proposal pack is decision-ready.",
+      "I'll check whether the architecture/implementation plan is decision-ready.",
     implication:
-      "Acting before the document is ready creates rework and mixed messaging.",
+      "Acting before the plan is ready creates rework on the feature branch.",
     action:
-      "I'll return a document-ready recommendation for approval.",
+      "I'll return a WorkPilot architecture recommendation for approval.",
   },
   mia: {
     observation:
-      "I'll review agenda clarity, attendees, and follow-up ownership for this thread.",
+      "I'll review UI scope, components, and QA handoff for this WorkPilot mission.",
     implication:
-      "Weak prep lowers decision quality when the meeting happens.",
+      "Weak UI boundaries lower review quality and slow ship.",
     action:
-      "I'll return one meeting-prep recommendation.",
+      "I'll return one frontend recommendation on the active work item.",
   },
   noah: {
     observation:
-      "I'll check relationship-record hygiene and account continuity for this motion.",
+      "I'll check API/schema boundaries and regression surface for this mission.",
     implication:
-      "Stale records can mis-prioritize follow-up and break ownership continuity.",
+      "Stale contracts break consumers and block PR review.",
     action:
-      "I'll return a CRM-grounded recommendation.",
+      "I'll return one backend recommendation scoped to WorkPilot.",
   },
   olivia: {
     observation:
-      "I'll review cost exposure and expected return on this motion.",
+      "I'll review data integrity and persistence risk on this WorkPilot path.",
     implication:
-      "Unscoped spend creates avoidable financial risk.",
+      "Unscoped data changes create avoidable production risk.",
     action:
-      "I'll return one finance-aware recommendation.",
+      "I'll return one data-safe recommendation for the active mission.",
   },
   ethan: {
     observation:
-      "I'll review support urgency and escalation risk on the related customer path.",
+      "I'll review test coverage and verification evidence for this WorkPilot change.",
     implication:
-      "Slow response raises satisfaction risk and forces harder escalations later.",
+      "Approving without tests raises release risk.",
     action:
-      "I'll return one support recommendation for approval.",
+      "I'll return one QA recommendation with evidence needs.",
   },
 };
 
@@ -624,14 +624,14 @@ export function assertContributionQuality(input: {
 
 function domainTokensFor(employeeId: string): string[] {
   const map: Record<string, string[]> = {
-    alex: ["calendar", "schedule", "conflict", "availability", "timing"],
-    mia: ["agenda", "meeting", "attendee", "follow-up", "prep"],
-    sarah: ["pipeline", "sales", "revenue", "account", "opportunity"],
-    david: ["document", "brief", "proposal", "report", "pack"],
-    emma: ["email", "draft", "recipient", "tone", "follow-up"],
-    noah: ["crm", "account", "record", "relationship", "customer"],
-    olivia: ["budget", "cost", "finance", "return", "financial"],
-    ethan: ["ticket", "support", "urgency", "escalation", "satisfaction"],
+    alex: ["ci", "build", "deploy", "release", "pipeline", "workpilot"],
+    mia: ["ui", "component", "frontend", "page", "workpilot", "hq"],
+    sarah: ["recommend", "approval", "decision", "risk", "workpilot"],
+    david: ["architecture", "plan", "design", "branch", "workpilot"],
+    emma: ["requirement", "acceptance", "criteria", "priority", "product", "workpilot"],
+    noah: ["api", "backend", "schema", "route", "workpilot"],
+    olivia: ["data", "schema", "persistence", "integrity", "workpilot"],
+    ethan: ["test", "qa", "regression", "verify", "evidence", "workpilot"],
   };
-  return map[employeeId] ?? [];
+  return map[employeeId] ?? ["workpilot"];
 }

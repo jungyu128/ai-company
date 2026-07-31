@@ -50,6 +50,8 @@ export type DevTask = {
   discipline: DevDiscipline;
   status: DevTaskStatus;
   workItem: WorkItemLink;
+  /** Sprint this work item belongs to (required for sprint-managed work). */
+  sprintId: string | null;
   /** Missing requirements that must be asked of the CEO — never assumed. */
   missingRequirements: string[];
   progressNote: string | null;

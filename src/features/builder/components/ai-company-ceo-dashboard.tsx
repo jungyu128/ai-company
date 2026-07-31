@@ -14,6 +14,7 @@ import { AutonomousWorkdayPanel } from "@/features/builder/components/autonomous
 import { CompanyMemoryPanel } from "@/features/builder/components/company-memory-panel";
 import { WorkspaceCollaborationPanel } from "@/features/builder/components/workspace-collaboration-panel";
 import { AiCompanyExecutiveDashboard } from "@/features/builder/components/ai-company-executive-dashboard";
+import { CompanyAnalyticsPanel } from "@/features/builder/components/company-analytics-panel";
 import { HqShell } from "@/features/builder/components/hq-shell";
 import { HqRecommendationCards } from "@/features/builder/components/hq-recommendation-cards";
 import {
@@ -107,6 +108,9 @@ export function AiCompanyCeoDashboard({ initial }: Props) {
               initial={initial.executive}
               workspaceId={workspaceId}
             />
+          </section>
+          <section id="ops-analytics">
+            <CompanyAnalyticsPanel workspaceId={workspaceId} />
           </section>
           <section id="ops-workspace">
             <WorkspaceCollaborationPanel

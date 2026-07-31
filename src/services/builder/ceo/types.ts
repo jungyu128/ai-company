@@ -118,6 +118,74 @@ export type AiCeoSafetyGuarantees = {
   neverFabricatesData: true;
 };
 
+/** Drill-down sections on the CEO Dashboard. */
+export type CeoDashboardDrillSection =
+  | "health"
+  | "workload"
+  | "active_work"
+  | "blocked_work"
+  | "sprint"
+  | "meeting"
+  | "risk"
+  | "approval"
+  | "decision"
+  | "kpi";
+
+export type CeoDashboardItemRef = {
+  id: string;
+  section: CeoDashboardDrillSection;
+  title: string;
+  subtitle: string;
+  status: string;
+  href: string;
+  meta?: Record<string, string | number | null | undefined>;
+};
+
+export type CeoSprintProgressPanel = {
+  active: {
+    id: string;
+    name: string;
+    goal: string;
+    status: string;
+    progressPercent: number;
+    velocity: number;
+    blockedWorkItems: number;
+    completedWorkItems: number;
+    totalWorkItems: number;
+  } | null;
+  plannedCount: number;
+  completedCount: number;
+  items: CeoDashboardItemRef[];
+};
+
+export type CeoMeetingSummary = {
+  id: string;
+  title: string;
+  kind: string;
+  status: string;
+  synthesis: string;
+  workItemTitle: string | null;
+  participantCount: number;
+  href: string;
+};
+
+export type CeoRecentDecision = {
+  id: string;
+  summary: string;
+  at: string;
+  relatedType: string;
+  relatedId: string;
+  actorName: string;
+  href: string;
+};
+
+export type CeoDashboardDrillResult = {
+  section: CeoDashboardDrillSection;
+  id: string;
+  title: string;
+  detail: Record<string, unknown>;
+};
+
 export type ExecutiveDashboard = {
   generatedAt: string;
   generatedAtDisplay: string;
@@ -125,13 +193,21 @@ export type ExecutiveDashboard = {
   health: CompanyHealthSnapshot;
   risks: OperationalRisk[];
   workloads: WorkloadEntry[];
-  approvalQueue: Array<{ id: string; title: string; owner: string }>;
+  approvalQueue: Array<{ id: string; title: string; owner: string; href: string }>;
   missionProgress: Array<{
     id: string;
     title: string;
     status: string;
     lead: string;
+    href: string;
   }>;
+  /** Open WorkPilot development tasks currently in flight. */
+  activeWork: CeoDashboardItemRef[];
+  /** Blocked / needs-clarification work needing CEO or peer attention. */
+  blockedWork: CeoDashboardItemRef[];
+  sprintProgress: CeoSprintProgressPanel;
+  meetingSummaries: CeoMeetingSummary[];
+  recentDecisions: CeoRecentDecision[];
   executionSuccessRate: number;
   connectorStatus: Array<{
     system: string;

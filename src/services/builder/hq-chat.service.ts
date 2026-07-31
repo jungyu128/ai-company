@@ -11,6 +11,7 @@ import { listCollaborations } from "./collaboration.store";
 import type { CollaborationMission } from "./collaboration.logic";
 import { buildCompanyActivityFeed } from "./conversation.logic";
 import { listMemories } from "./memory/memory.store";
+import { recallMemoryForDiscussion } from "./memory/memory.service";
 import { listProactiveRecommendations } from "./proactive.store";
 import { listApprovalCenter } from "./approval.service";
 import { DEFAULT_WORKSPACE_ID } from "./workspace/types";
@@ -34,6 +35,9 @@ import {
   saveChatThread,
   type HqChatThread,
 } from "./hq-chat.store";
+import { listActiveWorkpilotMissions } from "./autonomous-company/mission-scope.logic";
+import { buildMissionExecutionContext } from "./autonomous-company/mission-execution-context.logic";
+import { getAutonomyStore } from "./autonomous-company/autonomous-company.store";
 import {
   formatWorkItemLine,
   getEmployeeDevContext,
@@ -112,10 +116,22 @@ function gatherReplyContext(input: {
     input.employeeId,
     mission
   );
-  const memories = listMemories(input.repoRoot, input.workspaceId)
-    .filter((m) => m.ceoStatus === "accepted" || m.ceoStatus === "pending")
-    .slice(0, 5)
-    .map((m) => m.insight || m.title);
+  const memories = recallMemoryForDiscussion({
+    employeeId: input.employeeId,
+    workItemId: mission?.id ?? null,
+    projectKey: "workpilot",
+    limit: 5,
+    repoRoot: input.repoRoot,
+    workspaceId: input.workspaceId,
+  });
+  // Fall back to legacy slice if recall is empty
+  const memoryHints =
+    memories.length > 0
+      ? memories
+      : listMemories(input.repoRoot, input.workspaceId)
+          .filter((m) => m.ceoStatus === "accepted" || m.ceoStatus === "pending")
+          .slice(0, 5)
+          .map((m) => m.insight || m.title);
   const feed = buildCompanyActivityFeed(missions)
     .filter((a) => a.employeeId === input.employeeId || a.employeeId == null)
     .slice(0, 5)
@@ -152,7 +168,7 @@ function gatherReplyContext(input: {
     currentActivity,
     missionTitle: mission?.title ?? null,
     missionSummary: mission?.mission ?? null,
-    memoryHints: memories,
+    memoryHints,
     knowledgeHints: (def?.responsibilities ?? []).slice(0, 3),
     recentActivity: feed,
     priorMessages: input.priorMessages.map((m) => ({
@@ -166,6 +182,21 @@ function gatherReplyContext(input: {
     ownershipSummary: dev.ownership
       ? `${dev.ownership.disciplines.join(", ")} — ${dev.ownership.owns.slice(0, 3).join("; ")}`
       : null,
+    activeMissions: listActiveWorkpilotMissions(missions),
+    executionContext: buildMissionExecutionContext({
+      employeeId: input.employeeId,
+      missions,
+      task: dev.tasks[0] ?? null,
+      discussions: getAutonomyStore(input.repoRoot, input.workspaceId).discussions,
+      repositoryContext: [
+        ...(dev.primaryWorkItem?.refs ?? []),
+        ...(dev.ownership?.owns ?? []).slice(0, 3),
+      ],
+      ceoDecisions: missions
+        .filter((m) => m.ceoNote)
+        .map((m) => `${m.id}: ${m.ceoNote}`)
+        .slice(0, 5),
+    }),
   };
 }
 
@@ -392,6 +423,10 @@ export function sendHqChatMessage(input: {
     ceoMessage: text,
     repoRoot: root,
     workspaceId,
+    priorMessages: thread.messages.map((m) => ({
+      role: m.role,
+      body: m.body,
+    })),
   });
   const replyBody = clarification ?? buildEmployeeChatReply(ctx);
   const employeeMessage = createEmployeeChatMessage({

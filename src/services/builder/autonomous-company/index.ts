@@ -30,3 +30,34 @@ export {
 } from "./autonomous-company.service";
 
 export type { RepoMonitorInput } from "./autonomous-company.service";
+
+export {
+  listActiveWorkpilotMissions,
+  isWithinActiveMissionScope,
+  isUnrelatedCommercialComms,
+  ceoExplicitlyRequestsComms,
+  activeMissionsRequireComms,
+  missionScopeFocusLine,
+} from "./mission-scope.logic";
+
+export {
+  validateEmployeeOutput,
+  roleContractForEmployee,
+  isValidCollaboratorPair,
+  filterValidCollaborators,
+  listEmployeesWithRoleContracts,
+} from "./employee-role.logic";
+
+export {
+  buildMissionExecutionContext,
+  formatMissionExecutionContextBrief,
+  extractAcceptanceCriteria,
+  EXECUTION_SAFETY_RULES,
+} from "./mission-execution-context.logic";
+
+export type { MissionExecutionContext } from "./mission-execution-context.logic";
+
+export {
+  clarificationAlreadyAsked,
+  detectMissingRequirements,
+} from "./work-items.logic";

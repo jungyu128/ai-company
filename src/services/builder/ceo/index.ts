@@ -4,5 +4,6 @@ export * from "./health";
 export * from "./risks";
 export * from "./planning";
 export * from "./reports";
+export * from "./dashboard-panels";
 export * from "./ceo.store";
 export * from "./ceo.service";

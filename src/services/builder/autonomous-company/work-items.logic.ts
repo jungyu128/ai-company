@@ -112,42 +112,88 @@ export function allocateDevTaskId(now = new Date()): string {
   return `DEV-${day}-${newId("t").slice(-4).toUpperCase()}`;
 }
 
-/** Detect incomplete requirements — employees must ask CEO, not assume. */
+/** Detect incomplete requirements — ask CEO only when truly required; prefer inference. */
 export function detectMissingRequirements(input: {
   title: string;
   description: string;
   ceoMessage?: string | null;
+  /** Active mission / roadmap / plan text used to infer safely. */
+  missionCorpus?: string | null;
+  /** Repo evidence lines (tests, files, roadmap notes). */
+  repositoryEvidence?: string[] | null;
 }): string[] {
   const text = `${input.title}\n${input.description}\n${input.ceoMessage ?? ""}`;
+  const inferred = [
+    input.missionCorpus ?? "",
+    ...(input.repositoryEvidence ?? []),
+  ]
+    .join("\n")
+    .toLowerCase();
+  const combined = `${text}\n${inferred}`;
+
   const missing: string[] = [];
-  if (!/\b(accept|criteria|done when|definition of done)\b/i.test(text)) {
+
+  const hasAcceptance =
+    /\b(accept|criteria|done when|definition of done)\b/i.test(combined) ||
+    /\bplan step:/i.test(inferred) ||
+    /\b(must|should)\b.+\b(verify|pass|ship)\b/i.test(inferred);
+  if (!hasAcceptance) {
     missing.push("acceptance criteria / definition of done");
   }
+
   if (
     /\b(ui|page|screen|flow)\b/i.test(text) &&
-    !/\b(desktop|mobile|responsive|viewport)\b/i.test(text)
+    !/\b(desktop|mobile|responsive|viewport|hq|builder)\b/i.test(combined)
   ) {
     missing.push("target surfaces (desktop / mobile)");
   }
+
   if (
     /\b(api|endpoint|route)\b/i.test(text) &&
-    !/\b(auth|permission|role|public)\b/i.test(text)
+    !/\b(auth|permission|role|public|internal|hq)\b/i.test(combined)
   ) {
     missing.push("auth / permission expectations");
   }
+
   if (
     /\b(ship|release|deploy|beta)\b/i.test(text) &&
-    !/\b(date|window|deadline|sprint)\b/i.test(text)
+    !/\b(date|window|deadline|sprint|roadmap|plan step)\b/i.test(combined)
   ) {
     missing.push("target ship window");
   }
+
+  // Only ask to clarify TBD when the mission/repo evidence does not already bound scope.
   if (
-    /\b(maybe|tbd|unclear|somehow|etc\.?|figure out)\b/i.test(text) ||
-    /\?\s*$/m.test(input.description.trim())
+    (/\b(maybe|tbd|unclear|somehow|etc\.?|figure out)\b/i.test(text) ||
+      /\?\s*$/m.test(input.description.trim())) &&
+    !/\b(plan step|acceptance|must|scoped to)\b/i.test(inferred)
   ) {
     missing.push("clarified scope (remove TBD / open questions)");
   }
-  return missing.slice(0, 4);
+
+  return [...new Set(missing)].slice(0, 4);
+}
+
+/** True when prior employee clarification already asked the same missing set. */
+export function clarificationAlreadyAsked(
+  priorMessages: Array<{ role: string; body: string }>,
+  missingRequirements: string[]
+): boolean {
+  if (!missingRequirements.length) return true;
+  const prior = priorMessages
+    .filter(
+      (m) =>
+        m.role === "employee" &&
+        /clarification before i proceed|please confirm:/i.test(m.body)
+    )
+    .map((m) => m.body.toLowerCase());
+  if (!prior.length) return false;
+  return prior.some((body) =>
+    missingRequirements.every((item) => {
+      const token = item.toLowerCase().slice(0, 18);
+      return body.includes(token);
+    })
+  );
 }
 
 export function requirementsLookIncomplete(input: {
@@ -155,7 +201,24 @@ export function requirementsLookIncomplete(input: {
   description: string;
   ceoMessage?: string | null;
   knownMissing?: string[];
+  missionCorpus?: string | null;
+  repositoryEvidence?: string[] | null;
 }): boolean {
-  if ((input.knownMissing?.length ?? 0) > 0) return true;
+  if ((input.knownMissing?.length ?? 0) > 0) {
+    // Re-evaluate known missing against inference before treating as incomplete.
+    const refreshed = detectMissingRequirements({
+      title: input.title,
+      description: input.description,
+      ceoMessage: input.ceoMessage,
+      missionCorpus: input.missionCorpus,
+      repositoryEvidence: input.repositoryEvidence,
+    });
+    const stillMissing = input.knownMissing!.filter((m) =>
+      refreshed.includes(m)
+    );
+    if (stillMissing.length === 0 && refreshed.length === 0) return false;
+    if (stillMissing.length === 0 && refreshed.length > 0) return true;
+    return stillMissing.length > 0;
+  }
   return detectMissingRequirements(input).length > 0;
 }

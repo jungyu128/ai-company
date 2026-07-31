@@ -19,13 +19,25 @@ import {
   mergeDraftsIntoMemories,
 } from "./memory.engine";
 import {
+  buildLongTermMemoryDraft,
+  recallMemoryHints,
+  searchMemories,
+  summarizeOldMemories,
+} from "./memory-ltm.logic";
+import {
   getMemoryMeta,
   listMemories,
   replaceMemories,
   resetMemories,
   upsertMemory,
 } from "./memory.store";
-import type { CompanyMemory, LearningInsightSummary, MemoryCeoStatus } from "./types";
+import type {
+  CompanyMemory,
+  LearningInsightSummary,
+  MemoryCeoStatus,
+  MemoryRecordInput,
+  MemorySearchQuery,
+} from "./types";
 
 function nowIso() {
   return new Date().toISOString();
@@ -319,4 +331,180 @@ export function applyMemoryToRecommendations(
     .map((s) => s.rec);
 }
 
-export type { CompanyMemory, LearningInsightSummary };
+/**
+ * Record a long-term memory (completed work, discussion, decision, review, blocker, bug, CEO pref).
+ */
+export function recordLongTermMemory(input: {
+  record: MemoryRecordInput;
+  repoRoot?: string;
+  workspaceId?: string;
+  now?: string;
+}):
+  | { ok: true; memory: CompanyMemory }
+  | { ok: false; code: string; message: string; status: number } {
+  if (!isInternalAiCompanyEnabled()) {
+    return {
+      ok: false,
+      code: "DISABLED",
+      message: "Internal AI Company is disabled",
+      status: 403,
+    };
+  }
+  const root = input.repoRoot ?? process.cwd();
+  const workspaceId = input.workspaceId ?? "default";
+  const now = input.now ?? nowIso();
+  const privacy = getWorkspacePrivacySettings(workspaceId, root);
+  if (!privacy.memoryEnabled) {
+    return {
+      ok: false,
+      code: "PRIVACY",
+      message: "Memory is disabled for this workspace",
+      status: 403,
+    };
+  }
+
+  const draft = buildLongTermMemoryDraft(input.record, now);
+  if (!draft) {
+    return {
+      ok: false,
+      code: "UNSAFE",
+      message: "Memory content rejected by safety filter",
+      status: 400,
+    };
+  }
+
+  const existing = listMemories(root, workspaceId).find(
+    (m) => m.patternKey === draft.patternKey
+  );
+  if (existing) {
+    const merged: CompanyMemory = {
+      ...existing,
+      ...draft,
+      id: existing.id,
+      evidenceCount: existing.evidenceCount + 1,
+      confidence: Math.min(98, existing.confidence + 3),
+      lastUpdated: now,
+      sourceRefs: [
+        ...new Set([...existing.sourceRefs, ...draft.sourceRefs]),
+      ].slice(0, 12),
+      employeeIds: [
+        ...new Set([
+          ...(existing.employeeIds ?? []),
+          ...(draft.employeeIds ?? []),
+        ]),
+      ],
+      tags: [...new Set([...(existing.tags ?? []), ...(draft.tags ?? [])])].slice(
+        0,
+        12
+      ),
+    };
+    upsertMemory(merged, root, workspaceId);
+    return { ok: true, memory: merged };
+  }
+
+  upsertMemory(draft, root, workspaceId);
+  return { ok: true, memory: draft };
+}
+
+/** Search company memory by employee, project, work item, date, and free text. */
+export function searchCompanyMemory(input: {
+  query: MemorySearchQuery;
+  repoRoot?: string;
+  workspaceId?: string;
+  now?: string;
+}): CompanyMemory[] {
+  const root = input.repoRoot ?? process.cwd();
+  const workspaceId = input.workspaceId ?? "default";
+  const now = input.now ?? nowIso();
+  const memories = listMemories(root, workspaceId)
+    .map((m) => applyExpiration(m, now))
+    .filter((m) => m.ceoStatus !== "removed");
+  return searchMemories(memories, input.query);
+}
+
+/**
+ * Recall summarized memory hints for an employee discussion (auto-use).
+ */
+export function recallMemoryForDiscussion(input: {
+  employeeId: string;
+  workItemId?: string | null;
+  projectKey?: string | null;
+  limit?: number;
+  repoRoot?: string;
+  workspaceId?: string;
+  now?: string;
+}): string[] {
+  const root = input.repoRoot ?? process.cwd();
+  const workspaceId = input.workspaceId ?? "default";
+  const now = input.now ?? nowIso();
+  const memories = listMemories(root, workspaceId)
+    .map((m) => applyExpiration(m, now))
+    .filter(
+      (m) =>
+        (m.ceoStatus === "accepted" || m.ceoStatus === "pending") &&
+        isMemoryActive(m, now)
+    );
+  return recallMemoryHints(memories, {
+    employeeId: input.employeeId,
+    workItemId: input.workItemId,
+    projectKey: input.projectKey,
+    limit: input.limit,
+  });
+}
+
+/**
+ * Summarize older memories so discussions don't repeat entire histories.
+ */
+export function summarizeCompanyMemory(input?: {
+  employeeId?: string | null;
+  workItemId?: string | null;
+  olderThanDays?: number;
+  repoRoot?: string;
+  workspaceId?: string;
+  now?: string;
+}): {
+  ok: true;
+  summary: CompanyMemory | null;
+  supersededCount: number;
+} {
+  const root = input?.repoRoot ?? process.cwd();
+  const workspaceId = input?.workspaceId ?? "default";
+  const now = input?.now ?? nowIso();
+  const privacy = getWorkspacePrivacySettings(workspaceId, root);
+  if (!privacy.memoryEnabled) {
+    return { ok: true, summary: null, supersededCount: 0 };
+  }
+
+  const memories = listMemories(root, workspaceId);
+  const { summary, supersededIds } = summarizeOldMemories({
+    memories,
+    employeeId: input?.employeeId,
+    workItemId: input?.workItemId,
+    olderThanDays: input?.olderThanDays,
+    now,
+  });
+  if (!summary) return { ok: true, summary: null, supersededCount: 0 };
+
+  upsertMemory(summary, root, workspaceId);
+  for (const id of supersededIds) {
+    const found = memories.find((m) => m.id === id);
+    if (!found) continue;
+    upsertMemory(
+      {
+        ...found,
+        ceoStatus: "removed",
+        lastUpdated: now,
+        insight: sanitizeSupersededInsight(found.insight),
+      },
+      root,
+      workspaceId
+    );
+  }
+  return { ok: true, summary, supersededCount: supersededIds.length };
+}
+
+function sanitizeSupersededInsight(insight: string): string {
+  return `Superseded by summary. ${insight}`.slice(0, 240);
+}
+
+export type { CompanyMemory, LearningInsightSummary, MemorySearchQuery, MemoryRecordInput };
