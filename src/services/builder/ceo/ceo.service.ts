@@ -4,6 +4,7 @@
 
 import { AI_COMPANY_EMPLOYEES } from "../ai-company-employees";
 import { listApprovalCenter } from "../approval.service";
+import { listCeoApprovalQueue } from "../ceo-approval-queue";
 import { listCollaborations, upsertCollaboration } from "../collaboration.store";
 import { getAutonomyStore } from "../autonomous-company/autonomous-company.store";
 import { getConnectionStatusesSync } from "../execution/connection-status";
@@ -17,6 +18,9 @@ import {
   getCompanySprint,
   getSprintSnapshot,
 } from "../sprints";
+import { getLiveWorkTrackerSnapshot } from "../live-work-tracker";
+import { dailyReportViewFromStored } from "../daily-report";
+import { getDailyOpsSnapshot } from "../daily-ops";
 import { listActivity, listAudit } from "../workspace/collaboration-feed";
 import { DEFAULT_WORKSPACE_ID } from "../workspace/types";
 import { getAutonomousWorkday } from "../workday/workday.service";
@@ -367,6 +371,17 @@ function toDashboard(input: {
   });
   const activity = listActivity(input.workspaceId, input.repoRoot, 40);
   const audits = listAudit(input.workspaceId, input.repoRoot, 40);
+  const liveWork = getLiveWorkTrackerSnapshot({
+    repoRoot: input.repoRoot,
+    workspaceId: input.workspaceId,
+    sync: true,
+    now: input.now,
+  });
+  const dailyOps = getDailyOpsSnapshot({
+    repoRoot: input.repoRoot,
+    workspaceId: input.workspaceId,
+    now: input.now,
+  });
 
   return {
     generatedAt: input.now,
@@ -375,12 +390,18 @@ function toDashboard(input: {
     health: input.health,
     risks: input.risks,
     workloads: input.workloads,
-    approvalQueue: input.approvals.slice(0, 20).map((a) => ({
-      id: a.id,
-      title: a.title,
-      owner: a.requestingEmployee.name,
-      href: drillHref("approval", a.id),
-    })),
+    approvalQueue: listCeoApprovalQueue({
+      workspaceId: input.workspaceId,
+      repoRoot: input.repoRoot,
+      now: input.now,
+    })
+      .items.slice(0, 20)
+      .map((a) => ({
+        id: a.id,
+        title: a.requestedAction,
+        owner: a.employee.name,
+        href: "#ops-approvals",
+      })),
     missionProgress: input.missions.slice(0, 20).map((m) => ({
       id: m.id,
       title: m.title,
@@ -390,6 +411,107 @@ function toDashboard(input: {
     })),
     activeWork: buildActiveWorkItems(tasks),
     blockedWork: buildBlockedWorkItems(tasks),
+    liveWorkTracker: {
+      asOf: liveWork.asOf,
+      summary: liveWork.summary,
+      employees: liveWork.employees.map((e) => ({
+        employeeId: e.employeeId,
+        employeeName: e.employeeName,
+        role: e.role,
+        status: e.status,
+        currentTask: e.currentTask,
+        progressPercent: e.progressPercent,
+        currentStep: e.currentStep,
+        startedAt: e.startedAt,
+        estimatedCompletionAt: e.estimatedCompletionAt,
+        waitingFor: e.waitingFor,
+        nextPlannedAction: e.nextPlannedAction,
+        lastUpdate: e.lastUpdate,
+        href: `/builder/hq/employees/${encodeURIComponent(e.employeeId)}`,
+      })),
+      recentChanges: liveWork.recentChanges.slice(0, 12).map((c) => ({
+        employeeId: c.employeeId,
+        employeeName: c.employeeName,
+        summary: c.summary,
+        at: c.at,
+      })),
+    },
+    dailyOps: {
+      asOf: dailyOps.asOf,
+      directive: dailyOps.today
+        ? {
+            id: dailyOps.today.id,
+            title: dailyOps.today.title,
+            instruction: dailyOps.today.instruction,
+            status: dailyOps.today.status,
+            priority: dailyOps.today.priority,
+            clarifiedOutcome: dailyOps.today.clarifiedOutcome,
+            paused: dailyOps.today.paused,
+          }
+        : null,
+      plan: dailyOps.activePlan
+        ? {
+            id: dailyOps.activePlan.id,
+            planVersion: dailyOps.activePlan.planVersion,
+            status: dailyOps.activePlan.status,
+            objectiveSummary: dailyOps.activePlan.objectiveSummary,
+            immutable: dailyOps.activePlan.immutable,
+          }
+        : null,
+      workSummary: dailyOps.workSummary,
+      approvalQueue: dailyOps.approvalQueue.map((a) => ({
+        id: a.id,
+        kind: a.kind,
+        summary: a.summary,
+        workItemId: a.workItemId,
+      })),
+      workItems: (dailyOps.activePlan?.proposedWorkItems ?? []).map((w) => ({
+        id: w.id,
+        title: w.title,
+        status: w.status,
+        assignedEmployeeId: w.assignedEmployeeId,
+        permanentRole: w.permanentRole,
+        progress: w.progress,
+        currentStep: w.currentStep,
+        executionPermission: w.executionPermission,
+        blockedReason: w.blockedReason,
+        nextAction: w.nextAction,
+      })),
+      employees: dailyOps.employees.map((e) => ({
+        employeeId: e.employeeId,
+        employeeName: e.employeeName,
+        role: e.role,
+        currentActivity: e.currentActivity,
+        currentStep: e.currentStep,
+        progress: e.progress,
+        waitingFor: e.waitingFor,
+        nextAction: e.nextAction,
+      })),
+      blockers: dailyOps.blockers,
+      risks: (dailyOps.activePlan?.risks ?? []).map((r) => ({
+        id: r.id,
+        summary: r.summary,
+        severity: r.severity,
+        mitigation: r.mitigation,
+      })),
+      dependencies: (dailyOps.activePlan?.dependencies ?? []).map((d) => ({
+        id: d.id,
+        fromWorkItemId: d.fromWorkItemId,
+        toWorkItemId: d.toWorkItemId,
+        description: d.description,
+      })),
+      assignments: (dailyOps.activePlan?.employeeAssignments ?? []).map((a) => ({
+        employeeId: a.employeeId,
+        employeeName: a.employeeName,
+        permanentRole: a.permanentRole,
+        workItemIds: a.workItemIds,
+        reason: a.reason,
+      })),
+      latestUpdate: dailyOps.latestUpdate,
+      morningReportTitle: dailyOps.latestMorningReport?.title ?? null,
+      finalReportTitle: dailyOps.latestFinalReport?.title ?? null,
+      dailyReport: dailyReportViewFromStored(dailyOps.latestFinalReport),
+    },
     sprintProgress: buildSprintProgressPanel({
       active: sprintSnap.active,
       metrics: sprintSnap.metrics,
@@ -576,6 +698,39 @@ export function getCeoDashboardDrill(input: {
         },
       };
     }
+    case "live_work": {
+      const entry = dash.liveWorkTracker.employees.find(
+        (e) => e.employeeId === input.id
+      );
+      if (!entry) {
+        return {
+          ok: false,
+          code: "NOT_FOUND",
+          message: "Live work entry not found",
+          status: 404,
+        };
+      }
+      return {
+        ok: true,
+        drill: {
+          section: "live_work",
+          id: entry.employeeId,
+          title: `${entry.employeeName} · ${entry.status}`,
+          detail: { liveWork: entry, summary: dash.liveWorkTracker.summary },
+        },
+      };
+    }
+    case "daily_ops": {
+      return {
+        ok: true,
+        drill: {
+          section: "daily_ops",
+          id: input.id || dash.dailyOps.directive?.id || "daily_ops",
+          title: dash.dailyOps.directive?.title ?? "Daily Operations",
+          detail: { dailyOps: dash.dailyOps },
+        },
+      };
+    }
     case "risk": {
       const risk = dash.risks.find((r) => r.id === input.id);
       if (!risk) {
@@ -662,6 +817,46 @@ function emptyDashboard(workspaceId: string, now?: string): ExecutiveDashboard {
     missionProgress: [],
     activeWork: [],
     blockedWork: [],
+    liveWorkTracker: {
+      asOf: at,
+      summary: {
+        idle: 0,
+        planning: 0,
+        working: 0,
+        reviewing: 0,
+        meeting: 0,
+        waiting: 0,
+        blocked: 0,
+        completed: 0,
+      },
+      employees: [],
+      recentChanges: [],
+    },
+    dailyOps: {
+      asOf: at,
+      directive: null,
+      plan: null,
+      workSummary: {
+        proposed: 0,
+        awaitingApproval: 0,
+        approved: 0,
+        executing: 0,
+        blocked: 0,
+        completed: 0,
+        rejected: 0,
+      },
+      approvalQueue: [],
+      workItems: [],
+      employees: [],
+      blockers: [],
+      risks: [],
+      dependencies: [],
+      assignments: [],
+      latestUpdate: null,
+      morningReportTitle: null,
+      finalReportTitle: null,
+      dailyReport: null,
+    },
     sprintProgress: {
       active: null,
       plannedCount: 0,

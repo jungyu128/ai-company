@@ -35,10 +35,12 @@ describe("employee work state mapping", () => {
     assert.equal(workStateFromDevStatus("done"), "Completed");
   });
 
-  it("advances Planning → Working → Reviewing → Waiting", () => {
+  it("advances Idle → Planning → Working → Reviewing → Waiting", () => {
+    assert.equal(nextWorkState("Idle"), "Planning");
     assert.equal(nextWorkState("Planning"), "Working");
     assert.equal(nextWorkState("Working"), "Reviewing");
     assert.equal(nextWorkState("Reviewing"), "Waiting");
+    assert.equal(nextWorkState("Meeting"), "Working");
     assert.equal(nextWorkState("Waiting"), null);
     assert.equal(nextWorkState("Blocked"), null);
   });
@@ -47,7 +49,7 @@ describe("employee work state mapping", () => {
     const task = createEmployeeWork({
       title: "HQ shell polish",
       description: "Tighten HQ layout with acceptance criteria for desktop.",
-      ownerEmployeeId: "mia",
+      ownerEmployeeId: "alex",
       now: "2026-07-31T08:00:00.000Z",
     });
     task.status = "in_progress";
@@ -68,12 +70,14 @@ describe("employee work state mapping", () => {
       now: "2026-07-31T08:00:00.000Z",
     });
     assert.ok(states.length >= 8);
-    const mia = states.find((s) => s.employeeId === "mia");
+    const alex = states.find((s) => s.employeeId === "alex");
     const noah = states.find((s) => s.employeeId === "noah");
-    assert.equal(mia?.state, "Working");
-    assert.equal(mia?.activeTaskId, task.id);
+    const idle = states.find((s) => s.employeeId === "sarah");
+    assert.equal(alex?.state, "Working");
+    assert.equal(alex?.activeTaskId, task.id);
     assert.equal(noah?.interrupted, true);
     assert.equal(noah?.state, "Waiting");
+    assert.equal(idle?.state, "Idle");
   });
 });
 
@@ -92,22 +96,22 @@ describe("employee work actions", () => {
     const { primary, secondary } = splitDevTask({
       task: { ...created, status: "in_progress" },
       now,
-      secondaryOwnerId: "ethan",
+      secondaryOwnerId: "alex",
     });
-    assert.equal(secondary.ownerEmployeeId, "ethan");
+    assert.equal(secondary.ownerEmployeeId, "alex");
     assert.match(primary.progressNote ?? "", /Split/);
 
     const delegated = delegateDevTask({
       task: primary,
-      toEmployeeId: "mia",
+      toEmployeeId: "david",
       now,
     });
-    assert.equal(delegated.ownerEmployeeId, "mia");
+    assert.equal(delegated.ownerEmployeeId, "david");
     assert.ok(delegated.collaboratorIds.includes("noah"));
 
-    const review = requestReview({ task: delegated, now, reviewerId: "ethan" });
+    const review = requestReview({ task: delegated, now, reviewerId: "emma" });
     assert.equal(review.status, "peer_review");
-    assert.ok(review.collaboratorIds.includes("ethan"));
+    assert.ok(review.collaboratorIds.includes("emma"));
   });
 });
 
@@ -211,9 +215,9 @@ describe("continuous OS tick + CEO control", () => {
     const reprio = applyCeoOsAction({
       action: {
         action: "reprioritize",
-        employeeId: "mia",
+        employeeId: "alex",
         priority: 1,
-        note: "Mia first",
+        note: "Alex first",
       },
       actorUserId: "ceo-1",
       actorName: "CEO",
@@ -223,7 +227,7 @@ describe("continuous OS tick + CEO control", () => {
     assert.equal(reprio.ok, true);
     if (!reprio.ok) return;
     assert.equal(
-      reprio.snapshot.employeeStates.find((s) => s.employeeId === "mia")?.priority,
+      reprio.snapshot.employeeStates.find((s) => s.employeeId === "alex")?.priority,
       1
     );
 

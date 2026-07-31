@@ -29,12 +29,16 @@ export function workStateFromDevStatus(status: DevTaskStatus): EmployeeWorkState
 /** Advance a non-interrupted employee one step along the continuous workday path. */
 export function nextWorkState(state: EmployeeWorkState): EmployeeWorkState | null {
   switch (state) {
+    case "Idle":
+      return "Planning";
     case "Planning":
       return "Working";
     case "Working":
       return "Reviewing";
     case "Reviewing":
       return "Waiting";
+    case "Meeting":
+      return "Working";
     case "Waiting":
     case "Blocked":
     case "Completed":
@@ -46,9 +50,12 @@ export function nextWorkState(state: EmployeeWorkState): EmployeeWorkState | nul
 
 export function mapWorkStateToDevStatus(state: EmployeeWorkState): DevTaskStatus {
   switch (state) {
+    case "Idle":
+      return "proposed";
     case "Planning":
       return "proposed";
     case "Working":
+    case "Meeting":
       return "in_progress";
     case "Reviewing":
       return "peer_review";
@@ -65,7 +72,7 @@ export function mapWorkStateToDevStatus(state: EmployeeWorkState): DevTaskStatus
 
 /**
  * Derive live states for every catalog employee from active tasks + prior state.
- * Preserves CEO interrupts and explicit priority.
+ * Preserves CEO interrupts and explicit priority. Uses Idle when no active task.
  */
 export function deriveEmployeeLiveStates(input: {
   tasks: DevTask[];
@@ -86,7 +93,7 @@ export function deriveEmployeeLiveStates(input: {
       });
 
     const top = owned[0] ?? null;
-    let state: EmployeeWorkState = "Planning";
+    let state: EmployeeWorkState = "Idle";
     let note: string | null = "Idle — ready for next WorkPilot task";
     let activeTaskId: string | null = null;
 
@@ -113,6 +120,13 @@ export function deriveEmployeeLiveStates(input: {
       priority: prev?.priority ?? index + 1,
       interrupted: prev?.interrupted ?? false,
       updatedAt: input.now,
+      progressPercent: prev?.progressPercent,
+      startedAt: top?.createdAt ?? prev?.startedAt ?? null,
+      estimatedCompletionAt: prev?.estimatedCompletionAt ?? null,
+      currentStep: prev?.currentStep,
+      dependencies: top?.collaboratorIds ?? prev?.dependencies ?? [],
+      waitingFor: prev?.waitingFor ?? null,
+      nextPlannedAction: prev?.nextPlannedAction,
     };
   });
 }

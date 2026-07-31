@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { AiCompanyDashboard } from "@/services/builder/company.service";
 import type { EmployeeRecommendation } from "@/services/builder/proactive.logic";
-import { CeoApprovalCenter } from "@/features/builder/components/ceo-approval-center";
+import { CeoApprovalQueue } from "@/features/builder/components/ceo-approval-queue";
 import { CollaborationChainView } from "@/features/builder/components/collaboration-chain";
 import { CompanyActivityFeed } from "@/features/builder/components/company-activity-feed";
+import { CompanyActivityTimeline } from "@/features/builder/components/company-activity-timeline";
 import { MissionHistoryPanel } from "@/features/builder/components/mission-history-panel";
 import { CeoCommandCenterView } from "@/features/builder/components/ceo-command-center";
 import { AutonomousWorkdayPanel } from "@/features/builder/components/autonomous-workday-panel";
@@ -17,6 +18,7 @@ import { AiCompanyExecutiveDashboard } from "@/features/builder/components/ai-co
 import { CompanyAnalyticsPanel } from "@/features/builder/components/company-analytics-panel";
 import { HqShell } from "@/features/builder/components/hq-shell";
 import { HqRecommendationCards } from "@/features/builder/components/hq-recommendation-cards";
+import { AiCompanyEmployeeCardView } from "@/features/builder/components/ai-company-employee-card";
 import {
   AiCompanyLiveOffice,
   useLiveOfficeModel,
@@ -54,6 +56,7 @@ export function AiCompanyCeoDashboard({ initial }: Props) {
   );
 
   const live =
+    initial.ceoApprovalQueue.count > 0 ||
     initial.pendingApprovals.length > 0 ||
     initial.activeCollaborations.length > 0 ||
     initial.recommendations.some((r) => r.status === "pending") ||
@@ -94,11 +97,14 @@ export function AiCompanyCeoDashboard({ initial }: Props) {
       workspaceId={workspaceId}
       live={live}
       onlineCount={onlineCount}
-      approvalCount={initial.pendingApprovals.length}
+      approvalCount={initial.ceoApprovalQueue.count}
       ops={
         <div className="hq-ops-panels space-y-10">
           <section id="ops-approvals">
-            <CeoApprovalCenter items={initial.pendingApprovals} />
+            <CeoApprovalQueue
+              items={initial.ceoApprovalQueue.items}
+              protectedCount={initial.ceoApprovalQueue.protectedCount}
+            />
           </section>
           <section id="ops-command">
             <CeoCommandCenterView commandCenter={initial.commandCenter} />
@@ -133,8 +139,11 @@ export function AiCompanyCeoDashboard({ initial }: Props) {
             />
           </section>
           <section id="ops-activity" className="grid gap-6 lg:grid-cols-2">
-            <CompanyActivityFeed items={initial.activityFeed} />
-            <MissionHistoryPanel records={initial.missionHistory} compact />
+            <CompanyActivityTimeline events={initial.companyTimeline.events} />
+            <div className="space-y-6">
+              <CompanyActivityFeed items={initial.activityFeed} />
+              <MissionHistoryPanel records={initial.missionHistory} compact />
+            </div>
           </section>
           <section id="ops-collaborations">
             {initial.activeCollaborations.length > 0 ? (
@@ -168,6 +177,25 @@ export function AiCompanyCeoDashboard({ initial }: Props) {
           selectedId={selectedId}
           onSelect={setSelectedId}
         />
+
+        <section id="ops-live-employees" className="hq-employee-roster mt-8 px-4 md:px-6">
+          <div className="mb-4">
+            <p className="hq-mono text-xs tracking-[0.18em] text-[var(--hq-signal)] uppercase">
+              Live Employee Status
+            </p>
+            <h3 className="mt-1 text-xl font-semibold tracking-tight text-white/90">
+              Real-time work state
+            </h3>
+            <p className="mt-1 text-sm text-white/55">
+              Status and progress come from Continuous OS / Live Work Tracker — never fabricated.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {initial.employees.map((employee) => (
+              <AiCompanyEmployeeCardView key={employee.id} employee={employee} />
+            ))}
+          </div>
+        </section>
 
         <div className="hq-dock">
           <HqRecommendationCards

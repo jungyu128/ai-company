@@ -26,6 +26,8 @@ const DRILL_SECTIONS = new Set<CeoDashboardDrillSection>([
   "approval",
   "decision",
   "kpi",
+  "live_work",
+  "daily_ops",
 ]);
 
 /**

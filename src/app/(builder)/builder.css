@@ -665,6 +665,31 @@ html:has(.ai-hq) body {
     top 1s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.lo-live-status {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  margin-bottom: 0.25rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(10, 11, 13, 0.9);
+  color: #e5e7eb;
+  padding: 0.35rem 0.4rem;
+  text-align: left;
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+  box-shadow: 0 8px 20px -12px rgba(0, 0, 0, 0.7);
+}
+
+.lo-live-status--compact {
+  font-size: 0.58rem;
+  line-height: 1.25;
+}
+
+.lo-live-status .hq-mono {
+  color: rgba(156, 163, 175, 0.95);
+}
+
 .lo-desk--bias-left {
   transform: translate(calc(-50% - 0.55rem), 0);
 }

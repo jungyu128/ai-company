@@ -34,6 +34,7 @@ import {
   getActiveCompanySprint,
   getPrioritizedSprintTasks,
 } from "../sprints";
+import { syncLiveWorkTracker } from "../live-work-tracker/live-work.service";
 import {
   createEmployeeWork,
   delegateDevTask,
@@ -356,9 +357,11 @@ export function runContinuousOsTick(input?: {
     }
 
     const next = nextWorkState(
-      emp.state === "Planning" ||
+      emp.state === "Idle" ||
+        emp.state === "Planning" ||
         emp.state === "Working" ||
         emp.state === "Reviewing" ||
+        emp.state === "Meeting" ||
         emp.state === "Waiting" ||
         emp.state === "Blocked" ||
         emp.state === "Completed"
@@ -397,6 +400,18 @@ export function runContinuousOsTick(input?: {
   });
   upsertEmployeeStates(stateUpdates, root, workspaceId);
   markTick(now, root, workspaceId);
+
+  // Live Work Tracker: enrich Idle/Meeting + progress fields; timeline on change.
+  try {
+    syncLiveWorkTracker({
+      repoRoot: root,
+      workspaceId,
+      now,
+      recordTimeline: true,
+    });
+  } catch {
+    /* tracker is non-blocking for Continuous OS tick */
+  }
 
   const tickDecision: OsDecision = {
     id: newDecisionId(),
@@ -721,6 +736,16 @@ export function applyCeoOsAction(input: {
     workspaceId
   );
   recordDecision(decision, workspaceId, root);
+  try {
+    syncLiveWorkTracker({
+      repoRoot: root,
+      workspaceId,
+      now,
+      recordTimeline: true,
+    });
+  } catch {
+    /* non-blocking */
+  }
   logOpsEvent({
     outcome: "ok",
     workspaceId,

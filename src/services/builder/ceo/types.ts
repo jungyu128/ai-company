@@ -3,6 +3,8 @@
  * Product-facing only. AI CEO never performs external writes.
  */
 
+import type { DailyReportView } from "../daily-report/types";
+
 export type HealthLabel = "Strong" | "Stable" | "Watch" | "At risk";
 
 export type CompanyHealthKpis = {
@@ -129,7 +131,9 @@ export type CeoDashboardDrillSection =
   | "risk"
   | "approval"
   | "decision"
-  | "kpi";
+  | "kpi"
+  | "live_work"
+  | "daily_ops";
 
 export type CeoDashboardItemRef = {
   id: string;
@@ -139,6 +143,118 @@ export type CeoDashboardItemRef = {
   status: string;
   href: string;
   meta?: Record<string, string | number | null | undefined>;
+};
+
+export type CeoLiveWorkPanel = {
+  asOf: string;
+  summary: {
+    idle: number;
+    planning: number;
+    working: number;
+    reviewing: number;
+    meeting: number;
+    waiting: number;
+    blocked: number;
+    completed: number;
+  };
+  employees: Array<{
+    employeeId: string;
+    employeeName: string;
+    role: string;
+    status: string;
+    currentTask: string | null;
+    progressPercent: number;
+    currentStep: string;
+    startedAt: string | null;
+    estimatedCompletionAt: string | null;
+    waitingFor: string | null;
+    nextPlannedAction: string;
+    lastUpdate: string;
+    href: string;
+  }>;
+  recentChanges: Array<{
+    employeeId: string;
+    employeeName: string;
+    summary: string;
+    at: string;
+  }>;
+};
+
+export type CeoDailyOpsPanel = {
+  asOf: string;
+  directive: {
+    id: string;
+    title: string;
+    instruction: string;
+    status: string;
+    priority: string;
+    clarifiedOutcome: string | null;
+    paused: boolean;
+  } | null;
+  plan: {
+    id: string;
+    planVersion: number;
+    status: string;
+    objectiveSummary: string;
+    immutable: boolean;
+  } | null;
+  workSummary: {
+    proposed: number;
+    awaitingApproval: number;
+    approved: number;
+    executing: number;
+    blocked: number;
+    completed: number;
+    rejected: number;
+  };
+  approvalQueue: Array<{
+    id: string;
+    kind: string;
+    summary: string;
+    workItemId: string | null;
+  }>;
+  workItems: Array<{
+    id: string;
+    title: string;
+    status: string;
+    assignedEmployeeId: string;
+    permanentRole: string;
+    progress: number;
+    currentStep: string;
+    executionPermission: string;
+    blockedReason: string | null;
+    nextAction: string;
+  }>;
+  employees: Array<{
+    employeeId: string;
+    employeeName: string;
+    role: string;
+    currentActivity: string | null;
+    currentStep: string | null;
+    progress: number;
+    waitingFor: string | null;
+    nextAction: string | null;
+  }>;
+  blockers: Array<{ workItemId: string; title: string; reason: string }>;
+  risks: Array<{ id: string; summary: string; severity: string; mitigation: string }>;
+  dependencies: Array<{
+    id: string;
+    fromWorkItemId: string;
+    toWorkItemId: string;
+    description: string;
+  }>;
+  assignments: Array<{
+    employeeId: string;
+    employeeName: string;
+    permanentRole: string;
+    workItemIds: string[];
+    reason: string;
+  }>;
+  latestUpdate: string | null;
+  morningReportTitle: string | null;
+  finalReportTitle: string | null;
+  /** Structured Daily Report from recorded state (null until filed). */
+  dailyReport: DailyReportView | null;
 };
 
 export type CeoSprintProgressPanel = {
@@ -205,6 +321,10 @@ export type ExecutiveDashboard = {
   activeWork: CeoDashboardItemRef[];
   /** Blocked / needs-clarification work needing CEO or peer attention. */
   blockedWork: CeoDashboardItemRef[];
+  /** Real-time live work state for every employee. */
+  liveWorkTracker: CeoLiveWorkPanel;
+  /** CEO-controlled Daily Autonomous Operations. */
+  dailyOps: CeoDailyOpsPanel;
   sprintProgress: CeoSprintProgressPanel;
   meetingSummaries: CeoMeetingSummary[];
   recentDecisions: CeoRecentDecision[];

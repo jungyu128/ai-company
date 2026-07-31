@@ -7,6 +7,8 @@ import {
   employeeMotionStyle,
   monitorKindFor,
 } from "@/features/builder/live-office/live-office-motion";
+import { buildLiveEmployeeStatus } from "@/services/builder/live-employee-status";
+import { LiveEmployeeStatusBar } from "@/features/builder/components/live-employee-status-bar";
 
 type Props = {
   employee: LiveOfficeEmployeeView;
@@ -14,34 +16,6 @@ type Props = {
   dimmed: boolean;
   onSelect: (id: string) => void;
 };
-
-function activityVerb(employee: LiveOfficeEmployeeView): string {
-  const task = (employee.currentTask ?? employee.currentActivity ?? "").toLowerCase();
-  switch (employee.visualState) {
-    case "waiting_approval":
-      return "Waiting approval";
-    case "discussion":
-      return "In a call";
-    case "thinking":
-      return "Planning";
-    case "completed":
-      return "Completed";
-    case "idle":
-      return "Online";
-    default:
-      break;
-  }
-  if (task.includes("deploy")) return "Deploying";
-  if (task.includes("design") || task.includes("ui")) return "Designing";
-  if (task.includes("analy")) return "Analyzing";
-  if (task.includes("review") || task.includes("pr") || task.includes("pull"))
-    return "Reviewing";
-  if (task.includes("doc") || task.includes("read") || task.includes("brief"))
-    return "Reading";
-  if (task.includes("code") || task.includes("build") || task.includes("implement"))
-    return "Coding";
-  return "Coding";
-}
 
 function labelBias(employeeId: string): "left" | "right" | "center" {
   const left = new Set(["sarah", "david", "olivia"]);
@@ -104,12 +78,16 @@ function MonitorPreview({ kind }: { kind: ReturnType<typeof monitorKindFor> }) {
 export function LiveOfficeDesk({ employee, selected, dimmed, onSelect }: Props) {
   const pos = renderPosition(employee);
   const stateClass = `lo-desk--${employee.visualState}`;
-  const task = employee.currentTask ?? employee.currentActivity ?? "Standing by";
-  const verb = activityVerb(employee);
   const bias = labelBias(employee.id);
   const kind = monitorKindFor(employee);
   const z = selected ? 50 : Math.round(14 + pos.y);
   const motion = employeeMotionStyle(employee.id);
+  const liveStatus = buildLiveEmployeeStatus({
+    employeeId: employee.id,
+    liveWork: employee.liveWork,
+    currentTask: employee.currentTask ?? employee.liveWork.currentTask,
+    lastUpdateFallback: employee.lastActivityDisplay,
+  });
 
   return (
     <button
@@ -133,8 +111,10 @@ export function LiveOfficeDesk({ employee, selected, dimmed, onSelect }: Props) 
       }
       onClick={() => onSelect(employee.id)}
       aria-pressed={selected}
-      aria-label={`${employee.name}, ${employee.role}, ${verb}`}
+      aria-label={`${employee.name}, ${employee.role}, ${liveStatus.status}`}
     >
+      <LiveEmployeeStatusBar status={liveStatus} compact />
+
       <span className="lo-desk__seat" aria-hidden>
         <span className="lo-desk__figure">
           <span
@@ -170,9 +150,9 @@ export function LiveOfficeDesk({ employee, selected, dimmed, onSelect }: Props) 
             <span className="lo-desk__role">{employee.role}</span>
           </span>
         </span>
-        <span className="lo-desk__verb">{verb}</span>
-        <span className="lo-desk__task" title={task}>
-          {task}
+        <span className="lo-desk__verb">{liveStatus.status}</span>
+        <span className="lo-desk__task" title={liveStatus.currentTask ?? "None"}>
+          {liveStatus.currentTask ?? "No active task"}
         </span>
       </span>
     </button>

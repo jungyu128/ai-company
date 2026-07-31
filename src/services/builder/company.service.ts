@@ -16,10 +16,14 @@ import { getBuilderHqSnapshot } from "./hq.service";
 import { deriveLiveEmployeeStatuses, type CollaborationMission } from "./collaboration.logic";
 import { listCollaborations } from "./collaboration.store";
 import {
-  listAllApprovalHistory,
   listApprovalCenter,
+  listAllApprovalHistory,
   type ApprovalCenterItem,
 } from "./approval.service";
+import {
+  listCeoApprovalQueue,
+  type CeoApprovalQueueView,
+} from "./ceo-approval-queue";
 import {
   buildCompanyActivityFeed,
   computeCompanyMetrics,
@@ -39,6 +43,8 @@ import type {
 } from "./proactive.logic";
 import { listExecutionHistory } from "./execution/execution.service";
 import type { ExecutionRecord } from "./execution/types";
+import { getCompanyTimeline } from "./company-timeline";
+import type { CompanyTimelineView } from "./company-timeline";
 import {
   DEFAULT_WORKSPACE_ID,
   getWorkspaceCollaborationSnapshot,
@@ -53,6 +59,11 @@ import type {
 } from "./workspace/types";
 import { getExecutiveDashboard } from "./ceo/ceo.service";
 import type { ExecutiveDashboard } from "./ceo/types";
+import {
+  cardStatusFromLiveWork,
+  getLiveWorkTrackerSnapshot,
+  type LiveWorkTrackerEntry,
+} from "./live-work-tracker";
 
 export type CompanyWorkItem = {
   id: string;
@@ -81,6 +92,19 @@ export type AiCompanyEmployeeCard = {
     throughput: number;
     reliability: number;
     responsiveness: number;
+  };
+  /** Live Work Tracker — real-time Continuous OS work state (always present). */
+  liveWork: {
+    status: string;
+    progressPercent: number;
+    currentStep: string;
+    currentTask: string | null;
+    startedAt: string | null;
+    estimatedCompletionAt: string | null;
+    waitingFor: string | null;
+    nextPlannedAction: string;
+    dependencies: string[];
+    lastUpdate: string;
   };
 };
 
@@ -111,6 +135,8 @@ export type AiCompanyDashboard = {
   briefing: string | null;
   employees: AiCompanyEmployeeCard[];
   pendingApprovals: ApprovalCenterItem[];
+  /** Unified CEO Approval Queue (daily-ops + protected + missions). */
+  ceoApprovalQueue: CeoApprovalQueueView;
   activeCollaborations: CollaborationMission[];
   activityFeed: ActivityFeedItem[];
   missionHistory: MissionHistoryRecord[];
@@ -134,6 +160,8 @@ export type AiCompanyDashboard = {
   };
   /** v10 AI CEO executive operations. */
   executive: ExecutiveDashboard;
+  /** Company Activity Timeline — persisted lifecycle events. */
+  companyTimeline: CompanyTimelineView;
 };
 
 function performanceFor(status: AiCompanyEmployeeStatus, completedToday: number) {
@@ -190,7 +218,8 @@ function toCard(
   def: AiCompanyEmployeeDefinition,
   hq: BuilderHqSnapshot,
   liveStatuses: Record<string, AiCompanyEmployeeStatus>,
-  missions: CollaborationMission[]
+  missions: CollaborationMission[],
+  liveWork: LiveWorkTrackerEntry | null
 ): AiCompanyEmployeeCard {
   const relatedMissions = missions.filter((m) =>
     m.chain.some((s) => s.employeeId === def.id)
@@ -198,7 +227,10 @@ function toCard(
   const relatedApprovals = hq.pendingCeoApprovals.filter(
     (a) => matchEmployeeIdForText(a.title) === def.id
   );
-  const status = liveStatuses[def.id] ?? fallbackStatusFromHq(def, hq);
+  const status =
+    liveWork != null
+      ? cardStatusFromLiveWork(liveWork.status)
+      : (liveStatuses[def.id] ?? fallbackStatusFromHq(def, hq));
 
   const activeStep = relatedMissions
     .flatMap((m) => m.chain.map((s) => ({ m, s })))
@@ -216,6 +248,26 @@ function toCard(
     return matchEmployeeIdForText(blob) === def.id || e.actorId.toLowerCase().includes(def.id);
   });
 
+  const currentTask =
+    liveWork?.currentTask ??
+    activeStep?.m.title ??
+    relatedApprovals[0]?.title ??
+    (hq.currentTask && matchEmployeeIdForText(hq.currentTask.title) === def.id
+      ? hq.currentTask.title
+      : null);
+
+  const currentActivity =
+    liveWork != null
+      ? `${liveWork.status} · ${liveWork.currentStep}${
+          liveWork.progressPercent ? ` · ${liveWork.progressPercent}%` : ""
+        }`
+      : (activeStep?.s.message ?? null);
+
+  const lastUpdateIso = liveWork?.lastUpdate ?? last?.timestamp ?? hq.generatedAt;
+  const liveStatus = liveWork?.status ?? (currentTask ? "Planning" : "Idle");
+  const liveStep = liveWork?.currentStep ?? (currentTask ? "Planning approach" : "Standby");
+  const liveProgress = liveWork?.progressPercent ?? (currentTask ? 15 : 0);
+
   return {
     id: def.id,
     name: def.name,
@@ -226,22 +278,27 @@ function toCard(
     expertise: def.expertise,
     communicationStyle: def.communicationStyle,
     status,
-    currentActivity: activeStep?.s.message ?? null,
-    currentTask:
-      activeStep?.m.title ??
-      relatedApprovals[0]?.title ??
-      (hq.currentTask && matchEmployeeIdForText(hq.currentTask.title) === def.id
-        ? hq.currentTask.title
-        : null),
+    currentActivity,
+    currentTask,
     activeWorkload:
       relatedMissions.filter((m) => m.approvalStatus === "pending").length +
       relatedApprovals.length,
     completedToday,
     pendingApprovals: relatedApprovals.length,
-    lastActivityDisplay: last
-      ? formatHqDateTimeDisplay(last.timestamp)
-      : hq.generatedAtDisplay,
+    lastActivityDisplay: formatHqDateTimeDisplay(lastUpdateIso),
     performance: performanceFor(status, completedToday),
+    liveWork: {
+      status: liveStatus,
+      progressPercent: liveProgress,
+      currentStep: liveStep,
+      currentTask,
+      startedAt: liveWork?.startedAt ?? null,
+      estimatedCompletionAt: null,
+      waitingFor: liveWork?.waitingFor ?? null,
+      nextPlannedAction: liveWork?.nextPlannedAction ?? "Await next prioritized assignment",
+      dependencies: liveWork?.dependencies ?? [],
+      lastUpdate: formatHqDateTimeDisplay(lastUpdateIso),
+    },
   };
 }
 
@@ -262,10 +319,20 @@ export async function getAiCompanyDashboard(options?: {
     missions,
     AI_COMPANY_EMPLOYEES.map((e) => e.id)
   );
+  const liveSnap = getLiveWorkTrackerSnapshot({
+    repoRoot: root,
+    workspaceId,
+    sync: true,
+  });
+  const liveById = new Map(liveSnap.employees.map((e) => [e.employeeId, e]));
   const employees = AI_COMPANY_EMPLOYEES.map((def) =>
-    toCard(def, hq, liveStatuses, missions)
+    toCard(def, hq, liveStatuses, missions, liveById.get(def.id) ?? null)
   );
   const pendingApprovals = listApprovalCenter(root, workspaceId);
+  const ceoApprovalQueue = listCeoApprovalQueue({
+    repoRoot: root,
+    workspaceId,
+  });
   const activeCollaborations = missions.filter(
     (m) => m.approvalStatus === "pending" || m.approvalStatus === "approved"
   );
@@ -296,12 +363,19 @@ export async function getAiCompanyDashboard(options?: {
     refresh: true,
   });
 
+  const companyTimeline = getCompanyTimeline({
+    repoRoot: root,
+    workspaceId,
+    limit: 80,
+  });
+
   return {
     generatedAtDisplay: hq.generatedAtDisplay,
     headline: os.executiveBrief.headline,
     briefing: os.executiveBrief.summary,
     employees,
     pendingApprovals,
+    ceoApprovalQueue,
     activeCollaborations,
     activityFeed: buildCompanyActivityFeed(missions),
     missionHistory: listMissionHistory(missions),
@@ -322,6 +396,7 @@ export async function getAiCompanyDashboard(options?: {
       audit: collab.audit,
     },
     executive,
+    companyTimeline,
   };
 }
 
@@ -337,7 +412,18 @@ export async function getAiCompanyEmployeeProfile(
     missions,
     AI_COMPANY_EMPLOYEES.map((e) => e.id)
   );
-  const card = toCard(def, hq, liveStatuses, missions);
+  const liveSnap = getLiveWorkTrackerSnapshot({
+    repoRoot,
+    sync: true,
+  });
+  const liveById = new Map(liveSnap.employees.map((e) => [e.employeeId, e]));
+  const card = toCard(
+    def,
+    hq,
+    liveStatuses,
+    missions,
+    liveById.get(def.id) ?? null
+  );
 
   const mine = missions.filter((m) => m.chain.some((s) => s.employeeId === def.id));
   const waitingApprovals = listApprovalCenter(repoRoot)

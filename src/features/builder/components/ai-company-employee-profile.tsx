@@ -103,6 +103,45 @@ export function AiCompanyEmployeeProfileView({ profile }: Props) {
               Now: {profile.currentActivity}
             </p>
           ) : null}
+          {profile.liveWork ? (
+            <div className="mt-4 space-y-2">
+              <p className="hq-mono text-[11px] uppercase tracking-wide text-[var(--hq-muted)]">
+                Live Employee Status
+              </p>
+              <dl className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <dt className="text-[var(--hq-muted)]">Live status</dt>
+                <dd className="font-medium">{profile.liveWork.status}</dd>
+              </div>
+              <div>
+                <dt className="text-[var(--hq-muted)]">Progress</dt>
+                <dd className="font-medium">{profile.liveWork.progressPercent}%</dd>
+              </div>
+              <div className="col-span-2">
+                <dt className="text-[var(--hq-muted)]">Current task</dt>
+                <dd className="font-medium">
+                  {profile.liveWork.currentTask ?? profile.currentTask ?? "None"}
+                </dd>
+              </div>
+              <div className="col-span-2">
+                <dt className="text-[var(--hq-muted)]">Step</dt>
+                <dd className="font-medium">{profile.liveWork.currentStep}</dd>
+              </div>
+              {profile.liveWork.waitingFor ? (
+                <div className="col-span-2">
+                  <dt className="text-[var(--hq-muted)]">Waiting for</dt>
+                  <dd className="font-medium text-[var(--hq-warn)]">
+                    {profile.liveWork.waitingFor}
+                  </dd>
+                </div>
+              ) : null}
+              <div className="col-span-2">
+                <dt className="text-[var(--hq-muted)]">Last update</dt>
+                <dd className="font-medium">{profile.liveWork.lastUpdate}</dd>
+              </div>
+            </dl>
+            </div>
+          ) : null}
         </section>
 
         <section className="rounded-2xl border border-[var(--hq-line)] bg-[var(--hq-panel)] p-5">

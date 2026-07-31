@@ -1,0 +1,62 @@
+export type {
+  DailyDirectiveStatus,
+  DailyPlanStatus,
+  DailyWorkItemStatus,
+  ExecutionPermission,
+  DailyWorkApprovalState,
+  DailyDirectivePriority,
+  ProtectedActionKind,
+  DailyDirective,
+  DailyWorkItem,
+  DailyEmployeeAssignment,
+  DailyDependency,
+  DailyRisk,
+  DailyApprovalRequirement,
+  DailyExecutionPlan,
+  DailyReportKind,
+  DailyReport,
+  DailyOpsAuditEntry,
+  DailyOpsStoreShape,
+  CeoDailyOpsAction,
+  DailyOpsSnapshot,
+  ExecutionGateResult,
+} from "./types";
+
+export {
+  STATUS_PROGRESS,
+  STATUS_STEP,
+  NEXT_ACTION_FOR,
+  PROTECTED_ACTIONS,
+  progressForStatus,
+  assignEmployeeForObjective,
+  clarifyDirectiveOutcome,
+  buildProposedPlan,
+  applyWorkItemStatus,
+  dependenciesSatisfied,
+  workSummaryCounts,
+  buildMorningPlanReport,
+  buildProgressReport,
+  buildApprovalRequestReport,
+  buildFinalDailyReport,
+  buildDailyReportBody,
+  textLooksLikeFakeApproval,
+  detectProtectedActionHint,
+} from "./daily-ops.logic";
+
+export {
+  assertCanExecuteWorkItem,
+  assertExplicitCeoApprovalAction,
+  rejectInferredApprovalFromText,
+  assertNotSelfApprove,
+  isProtectedAction,
+} from "./daily-ops.enforcement";
+
+export {
+  getDailyOpsSnapshot,
+  submitDailyDirective,
+  analyzeAndProposePlan,
+  applyCeoDailyOpsAction,
+  advanceApprovedDailyWork,
+  tryExecuteDailyWorkItem,
+  recordWorkItemArtifacts,
+} from "./daily-ops.service";

@@ -24,6 +24,13 @@ export {
 } from "./work-actions.logic";
 
 export {
+  getContinuousOsStore,
+  upsertEmployeeStates,
+  appendOsDecisions,
+  markTick,
+} from "./continuous-os.store";
+
+export {
   getContinuousOsSnapshot,
   runContinuousOsTick,
   applyCeoOsAction,

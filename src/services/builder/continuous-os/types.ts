@@ -6,9 +6,11 @@ import type { AutonomyCycleResult, DevTask, WorkItemLink } from "../autonomous-c
 
 /** Live work state every employee maintains throughout the day. */
 export type EmployeeWorkState =
+  | "Idle"
   | "Planning"
   | "Working"
   | "Reviewing"
+  | "Meeting"
   | "Waiting"
   | "Blocked"
   | "Completed";
@@ -24,6 +26,14 @@ export type EmployeeLiveState = {
   /** CEO interrupt — employee pauses independent advancement until cleared. */
   interrupted: boolean;
   updatedAt: string;
+  /** Live Work Tracker enrichment (optional for backward-compatible stores). */
+  progressPercent?: number;
+  startedAt?: string | null;
+  estimatedCompletionAt?: string | null;
+  currentStep?: string;
+  dependencies?: string[];
+  waitingFor?: string | null;
+  nextPlannedAction?: string;
 };
 
 export type OsDecisionKind =

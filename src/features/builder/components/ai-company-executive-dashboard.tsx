@@ -7,8 +7,10 @@ import type {
   CeoDashboardDrillResult,
   CeoDashboardDrillSection,
   CeoDashboardItemRef,
+  CeoLiveWorkPanel,
   ExecutiveDashboard,
 } from "@/services/builder/ceo/types";
+import { DailyOperationsPanel } from "@/features/builder/components/daily-operations-panel";
 
 type Props = {
   initial: ExecutiveDashboard;
@@ -229,6 +231,16 @@ export function AiCompanyExecutiveDashboard({ initial, workspaceId }: Props) {
           />
         </Panel>
       </div>
+
+      <LiveWorkTrackerPanel
+        panel={dash.liveWorkTracker}
+        onSelect={(employeeId) =>
+          void openDrill("live_work", employeeId)
+        }
+        onOpenEmployee={(href) => router.push(href)}
+      />
+
+      <DailyOperationsPanel initial={dash.dailyOps} workspaceId={workspaceId} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel title="Sprint progress">
@@ -503,6 +515,101 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
     <div className="rounded-2xl border border-[var(--hq-line)] bg-[var(--hq-panel)] p-5">
       <h4 className="text-lg font-semibold">{title}</h4>
       <div className="mt-4">{children}</div>
+    </div>
+  );
+}
+
+function LiveWorkTrackerPanel({
+  panel,
+  onSelect,
+  onOpenEmployee,
+}: {
+  panel: CeoLiveWorkPanel;
+  onSelect: (employeeId: string) => void;
+  onOpenEmployee: (href: string) => void;
+}) {
+  const s = panel.summary;
+  return (
+    <div className="rounded-2xl border border-[var(--hq-line)] bg-[var(--hq-panel)] p-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h4 className="text-lg font-semibold">Live Work Tracker</h4>
+          <p className="mt-1 text-sm text-[var(--hq-muted)]">
+            Real-time status for every employee · updated continuously with Continuous OS
+          </p>
+        </div>
+        <p className="hq-mono text-[11px] text-[var(--hq-muted)]">as of {panel.asOf}</p>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-4 lg:grid-cols-8">
+        {(
+          [
+            ["Idle", s.idle],
+            ["Planning", s.planning],
+            ["Working", s.working],
+            ["Reviewing", s.reviewing],
+            ["Meeting", s.meeting],
+            ["Waiting", s.waiting],
+            ["Blocked", s.blocked],
+            ["Done", s.completed],
+          ] as const
+        ).map(([label, n]) => (
+          <div key={label} className="rounded-xl bg-white px-3 py-2 text-center">
+            <p className="text-[10px] uppercase tracking-wide text-[var(--hq-muted)]">{label}</p>
+            <p className="mt-1 text-lg font-semibold">{n}</p>
+          </div>
+        ))}
+      </div>
+
+      <ul className="mt-5 space-y-2">
+        {panel.employees.map((e) => (
+          <li key={e.employeeId}>
+            <button
+              type="button"
+              className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-3 py-3 text-left text-sm transition hover:ring-1 hover:ring-[var(--hq-line)]"
+              onClick={() => onSelect(e.employeeId)}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{e.employeeName}</span>
+                  <span className="text-xs text-[var(--hq-muted)]">{e.role}</span>
+                  <span className="rounded-full bg-[var(--hq-signal-soft)] px-2 py-0.5 text-[11px] text-[var(--hq-signal)]">
+                    {e.status}
+                  </span>
+                </div>
+                <p className="mt-1 line-clamp-1 text-[var(--hq-muted)]">
+                  {e.currentTask ?? "No active task"} · {e.currentStep} · {e.progressPercent}%
+                </p>
+                {e.waitingFor ? (
+                  <p className="mt-1 text-xs text-[var(--hq-warn)]">Waiting: {e.waitingFor}</p>
+                ) : null}
+              </div>
+              <span
+                className="text-xs text-[var(--hq-signal)] underline"
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  onOpenEmployee(e.href);
+                }}
+              >
+                Profile
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {panel.recentChanges.length > 0 ? (
+        <div className="mt-5 border-t border-[var(--hq-line)]/70 pt-4">
+          <p className="text-[11px] uppercase tracking-wide text-[var(--hq-muted)]">
+            Recent state changes
+          </p>
+          <ul className="mt-2 space-y-1 text-xs text-[var(--hq-muted)]">
+            {panel.recentChanges.slice(0, 6).map((c, i) => (
+              <li key={`${c.employeeId}-${c.at}-${i}`}>{c.summary}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }
