@@ -99,6 +99,11 @@ export function ensureDefaultWorkspace(input: {
   email: string;
   displayName: string;
   repoRoot?: string;
+  /**
+   * When true, always ensure this user is an owner of the default workspace
+   * (platform owner bootstrap / heal). When false, only seed if no owners exist yet.
+   */
+  ensureOwnerMembership?: boolean;
 }): { workspace: AiCompanyWorkspace; member: WorkspaceMember | null; created: boolean } {
   const root = input.repoRoot ?? process.cwd();
   const now = nowIso();
@@ -122,8 +127,10 @@ export function ensureDefaultWorkspace(input: {
     const existingOwners = listMembers(DEFAULT_WORKSPACE_ID, root).filter(
       (m) => m.role === "owner"
     );
-    // Only auto-seed the first owner. Later users must be invited.
-    if (existingOwners.length === 0) {
+    // First deploy: seed the first owner. Platform owner: always bootstrap/heal.
+    const shouldSeed =
+      input.ensureOwnerMembership === true || existingOwners.length === 0;
+    if (shouldSeed) {
       member = {
         id: newId("wsm"),
         workspaceId: DEFAULT_WORKSPACE_ID,
@@ -136,6 +143,15 @@ export function ensureDefaultWorkspace(input: {
       };
       upsertMember(member, root);
     }
+  } else if (input.ensureOwnerMembership === true && member.role !== "owner") {
+    member = addOrUpdateMember({
+      workspaceId: DEFAULT_WORKSPACE_ID,
+      userId: input.userId,
+      email: input.email,
+      displayName: input.displayName,
+      role: "owner",
+      repoRoot: root,
+    });
   }
 
   return { workspace, member, created };

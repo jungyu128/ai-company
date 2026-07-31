@@ -2,11 +2,20 @@ import Link from "next/link";
 import { getAuthContext } from "@/lib/auth";
 import { getRepositoryDashboard } from "@/services/github";
 import { formatHqDateTimeDisplay } from "@/services/builder/format-hq-display";
+import { HqShellPage } from "@/features/builder/components/hq-shell-page";
+import { DEFAULT_WORKSPACE_ID } from "@/services/builder/workspace/workspace.service";
 
 export const dynamic = "force-dynamic";
 
-export default async function WorkpilotRepositoryPage() {
+type PageProps = {
+  searchParams?: Promise<{ workspaceId?: string }>;
+};
+
+export default async function WorkpilotRepositoryPage({ searchParams }: PageProps) {
   const auth = await getAuthContext();
+  const params = searchParams ? await searchParams : {};
+  const workspaceId = params.workspaceId?.trim() || DEFAULT_WORKSPACE_ID;
+
   if (!auth) {
     return (
       <main className="mx-auto max-w-3xl px-6 py-16">
@@ -22,26 +31,18 @@ export default async function WorkpilotRepositoryPage() {
   const { status, branches, issues, pullRequests } = dash;
 
   return (
-    <div className="hq-grid min-h-screen">
-      <header className="border-b border-[var(--hq-line)]/80 bg-[var(--hq-panel)]/80">
-        <div className="mx-auto flex max-w-[92rem] items-center justify-between gap-4 px-6 py-5">
-          <div>
-            <p className="hq-mono text-xs tracking-[0.22em] text-[var(--hq-signal)] uppercase">
-              WorkPilot connection
-            </p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">Product repository</h1>
-          </div>
-          <Link
-            href="/builder/hq"
-            className="text-sm text-[var(--hq-signal)] underline-offset-2 hover:underline"
-          >
-            ← Live Office HQ
-          </Link>
+    <HqShellPage workspaceId={workspaceId}>
+      <div className="mx-auto max-w-[92rem] space-y-8">
+        <div>
+          <p className="hq-mono text-xs tracking-[0.22em] text-[var(--hq-green-bright)] uppercase">
+            Integrations · WorkPilot connection
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
+            Product repository
+          </h1>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-[92rem] space-y-8 px-6 py-8">
-        <section className="rounded-2xl border border-[var(--hq-line)] bg-[var(--hq-panel)] p-5">
+        <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
           <p className="hq-mono text-[10px] tracking-[0.18em] text-[var(--hq-muted)] uppercase">
             Connection status
           </p>
@@ -49,7 +50,7 @@ export default async function WorkpilotRepositoryPage() {
             <span
               className={`rounded-full px-3 py-1 text-xs font-medium ${
                 status.connected
-                  ? "bg-[var(--hq-signal-soft)] text-[var(--hq-signal)]"
+                  ? "bg-[var(--hq-green-soft)] text-[var(--hq-green-bright)]"
                   : "bg-[var(--hq-warn-soft)] text-[var(--hq-warn)]"
               }`}
             >
@@ -73,7 +74,7 @@ export default async function WorkpilotRepositoryPage() {
               {status.repository.description ?? "No description"} ·{" "}
               <a
                 href={status.repository.htmlUrl}
-                className="text-[var(--hq-signal)] underline-offset-2 hover:underline"
+                className="text-[var(--hq-green-bright)] underline-offset-2 hover:underline"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -87,8 +88,8 @@ export default async function WorkpilotRepositoryPage() {
         </section>
 
         <div className="grid gap-6 lg:grid-cols-3">
-          <section className="rounded-2xl border border-[var(--hq-line)] bg-[var(--hq-panel)] p-5">
-            <h2 className="text-lg font-semibold">Branches</h2>
+          <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+            <h2 className="text-lg font-semibold text-white">Branches</h2>
             <p className="mt-1 text-xs text-[var(--hq-muted)]">
               Current default: {status.defaultBranch}
             </p>
@@ -99,7 +100,7 @@ export default async function WorkpilotRepositoryPage() {
                 branches.slice(0, 40).map((b) => (
                   <li
                     key={b.name}
-                    className="flex items-center justify-between rounded-lg bg-white px-3 py-2"
+                    className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2"
                   >
                     <span>{b.name}</span>
                     {b.protected ? (
@@ -111,14 +112,14 @@ export default async function WorkpilotRepositoryPage() {
             </ul>
           </section>
 
-          <section className="rounded-2xl border border-[var(--hq-line)] bg-[var(--hq-panel)] p-5">
-            <h2 className="text-lg font-semibold">Open issues</h2>
+          <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+            <h2 className="text-lg font-semibold text-white">Open issues</h2>
             <ul className="mt-4 max-h-80 space-y-2 overflow-y-auto text-sm">
               {issues.length === 0 ? (
                 <li className="text-[var(--hq-muted)]">No open issues.</li>
               ) : (
                 issues.map((i) => (
-                  <li key={i.number} className="rounded-lg bg-white px-3 py-2">
+                  <li key={i.number} className="rounded-lg bg-white/5 px-3 py-2">
                     <a
                       href={i.htmlUrl}
                       target="_blank"
@@ -133,14 +134,14 @@ export default async function WorkpilotRepositoryPage() {
             </ul>
           </section>
 
-          <section className="rounded-2xl border border-[var(--hq-line)] bg-[var(--hq-panel)] p-5">
-            <h2 className="text-lg font-semibold">Recent pull requests</h2>
+          <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+            <h2 className="text-lg font-semibold text-white">Recent pull requests</h2>
             <ul className="mt-4 max-h-80 space-y-2 overflow-y-auto text-sm">
               {pullRequests.length === 0 ? (
                 <li className="text-[var(--hq-muted)]">No pull requests.</li>
               ) : (
                 pullRequests.map((p) => (
-                  <li key={p.number} className="rounded-lg bg-white px-3 py-2">
+                  <li key={p.number} className="rounded-lg bg-white/5 px-3 py-2">
                     <a
                       href={p.htmlUrl}
                       target="_blank"
@@ -164,7 +165,7 @@ export default async function WorkpilotRepositoryPage() {
           Safety: writes require explicit owner approval, always use a feature branch + PR, never
           auto-merge, never push to main. GITHUB_TOKEN stays server-side only.
         </p>
-      </main>
-    </div>
+      </div>
+    </HqShellPage>
   );
 }

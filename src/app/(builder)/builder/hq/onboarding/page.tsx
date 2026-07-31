@@ -10,6 +10,7 @@ import {
   startOrResumeOnboarding,
 } from "@/services/builder/onboarding";
 import { AiCompanyOnboardingWizard } from "@/features/builder/components/ai-company-onboarding-wizard";
+import { HqShellPage } from "@/features/builder/components/hq-shell-page";
 
 export const dynamic = "force-dynamic";
 
@@ -62,29 +63,21 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="hq-grid min-h-screen">
-      <header className="border-b border-[var(--hq-line)]/80 bg-[var(--hq-panel)]/80 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-6 py-6">
-          <Link
-            href={`/builder/hq?workspaceId=${encodeURIComponent(workspaceId)}`}
-            className="text-sm text-[var(--hq-muted)] underline-offset-2 hover:underline"
-          >
-            ← Back to HQ
-          </Link>
-          <span className="hq-mono text-xs tracking-[0.18em] text-[var(--hq-signal)] uppercase">
-            Onboarding
-          </span>
+    <HqShellPage workspaceId={workspaceId}>
+      <div className="mx-auto max-w-4xl">
+        <p className="hq-mono text-xs tracking-[0.18em] text-[var(--hq-green-bright)] uppercase">
+          Settings · Onboarding
+        </p>
+        <div className="mt-6">
+          {error ? (
+            <div className="rounded-2xl border border-[var(--hq-warn)]/30 bg-[var(--hq-warn-soft)] px-5 py-4 text-[var(--hq-warn)]">
+              {error}
+            </div>
+          ) : (
+            <AiCompanyOnboardingWizard initial={view} workspaceId={view.state.workspaceId} />
+          )}
         </div>
-      </header>
-      <main className="mx-auto max-w-4xl px-6 py-10">
-        {error ? (
-          <div className="rounded-2xl border border-[var(--hq-warn)]/30 bg-[var(--hq-warn-soft)] px-5 py-4 text-[var(--hq-warn)]">
-            {error}
-          </div>
-        ) : (
-          <AiCompanyOnboardingWizard initial={view} workspaceId={view.state.workspaceId} />
-        )}
-      </main>
-    </div>
+      </div>
+    </HqShellPage>
   );
 }

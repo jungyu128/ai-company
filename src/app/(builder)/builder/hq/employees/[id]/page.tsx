@@ -3,12 +3,17 @@ import Link from "next/link";
 import { isInternalAiCompanyEnabled } from "@/services/builder/internal-ai-company";
 import { getAiCompanyEmployeeProfile } from "@/services/builder/company.service";
 import { AiCompanyEmployeeProfileView } from "@/features/builder/components/ai-company-employee-profile";
+import { HqShellPage } from "@/features/builder/components/hq-shell-page";
+import { DEFAULT_WORKSPACE_ID } from "@/services/builder/workspace/workspace.service";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ workspaceId?: string }>;
+};
 
-export default async function AiCompanyEmployeePage({ params }: Props) {
+export default async function AiCompanyEmployeePage({ params, searchParams }: Props) {
   if (!isInternalAiCompanyEnabled()) {
     return (
       <div className="hq-grid min-h-screen">
@@ -23,14 +28,16 @@ export default async function AiCompanyEmployeePage({ params }: Props) {
   }
 
   const { id } = await params;
+  const qs = searchParams ? await searchParams : {};
+  const workspaceId = qs.workspaceId?.trim() || DEFAULT_WORKSPACE_ID;
   const profile = await getAiCompanyEmployeeProfile(id);
   if (!profile) notFound();
 
   return (
-    <div className="hq-grid min-h-screen">
-      <main className="mx-auto max-w-6xl px-6 py-10">
+    <HqShellPage workspaceId={workspaceId}>
+      <div className="mx-auto max-w-6xl">
         <AiCompanyEmployeeProfileView profile={profile} />
-      </main>
-    </div>
+      </div>
+    </HqShellPage>
   );
 }

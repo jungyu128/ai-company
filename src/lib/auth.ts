@@ -22,12 +22,37 @@ export type AuthContext = {
 
 const OWNER_COOKIE = "ai_company_owner";
 
+export type PlatformOwnerIdentity = {
+  id: string;
+  email: string;
+  name: string;
+};
+
+/** Configured single-tenant owner identity (env, with stable defaults). */
+export function getPlatformOwnerIdentity(): PlatformOwnerIdentity {
+  return {
+    id: process.env.AI_COMPANY_OWNER_ID?.trim() || "owner",
+    email: process.env.AI_COMPANY_OWNER_EMAIL?.trim() || "owner@ai-company.local",
+    name: process.env.AI_COMPANY_OWNER_NAME?.trim() || "CEO Owner",
+  };
+}
+
+/** True when the authenticated user is the configured platform owner. */
+export function isPlatformOwnerUser(user: { id: string; email: string }): boolean {
+  const owner = getPlatformOwnerIdentity();
+  return (
+    user.id === owner.id ||
+    user.email.trim().toLowerCase() === owner.email.trim().toLowerCase()
+  );
+}
+
 function ownerFromEnv(): AuthContext {
+  const owner = getPlatformOwnerIdentity();
   return {
     user: {
-      id: process.env.AI_COMPANY_OWNER_ID?.trim() || "owner",
-      email: process.env.AI_COMPANY_OWNER_EMAIL?.trim() || "owner@ai-company.local",
-      name: process.env.AI_COMPANY_OWNER_NAME?.trim() || "CEO Owner",
+      id: owner.id,
+      email: owner.email,
+      name: owner.name,
       role: "OWNER",
     },
     companyId: "ai-company",

@@ -43,7 +43,15 @@ export function LiveOfficeActivityFeed({ items }: Props) {
             <h3 className="lo-channel__title">Live activity</h3>
           </div>
         </div>
-        <span className="hq-live-dot" />
+        <button
+          type="button"
+          className="lo-channel__see-all"
+          onClick={() => {
+            window.location.hash = "ops-activity";
+          }}
+        >
+          See all
+        </button>
       </div>
 
       {items.length === 0 ? (
@@ -68,7 +76,15 @@ export function LiveOfficeActivityFeed({ items }: Props) {
         </ul>
       )}
 
-      <p className="lo-channel__footer">View all activity →</p>
+      <button
+        type="button"
+        className="lo-channel__footer"
+        onClick={() => {
+          window.location.hash = "ops-activity";
+        }}
+      >
+        See all activity →
+      </button>
     </aside>
   );
 }

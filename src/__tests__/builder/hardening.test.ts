@@ -102,6 +102,63 @@ describe("beta validation & production hardening", () => {
     if (!denied.ok) assert.equal(denied.code, "FORBIDDEN");
   });
 
+  it("bootstraps platform owner into default workspace even when a stale owner exists", () => {
+    const prevOwnerId = process.env.AI_COMPANY_OWNER_ID;
+    const prevOwnerEmail = process.env.AI_COMPANY_OWNER_EMAIL;
+    process.env.AI_COMPANY_OWNER_ID = "platform-owner";
+    process.env.AI_COMPANY_OWNER_EMAIL = "platform@ai-company.local";
+    try {
+      ensureDefaultWorkspace({
+        userId: "stale-owner",
+        email: "stale@example.com",
+        displayName: "Stale",
+        repoRoot: tmp,
+      });
+      assert.ok(getMember("default", "stale-owner", tmp));
+      assert.equal(getMember("default", "platform-owner", tmp), null);
+
+      const access = ensureHqAccess({
+        auth: auth("platform-owner", "platform@ai-company.local"),
+        workspaceId: "default",
+        repoRoot: tmp,
+      });
+      assert.equal(access.ok, true);
+      if (access.ok) {
+        assert.equal(access.ctx.role, "owner");
+        assert.equal(access.ctx.userId, "platform-owner");
+      }
+      const member = getMember("default", "platform-owner", tmp);
+      assert.ok(member);
+      assert.equal(member?.role, "owner");
+    } finally {
+      if (prevOwnerId === undefined) delete process.env.AI_COMPANY_OWNER_ID;
+      else process.env.AI_COMPANY_OWNER_ID = prevOwnerId;
+      if (prevOwnerEmail === undefined) delete process.env.AI_COMPANY_OWNER_EMAIL;
+      else process.env.AI_COMPANY_OWNER_EMAIL = prevOwnerEmail;
+    }
+  });
+
+  it("never blocks platform owner from default workspace on first deploy", () => {
+    const prevOwnerId = process.env.AI_COMPANY_OWNER_ID;
+    const prevOwnerEmail = process.env.AI_COMPANY_OWNER_EMAIL;
+    process.env.AI_COMPANY_OWNER_ID = "fresh-owner";
+    process.env.AI_COMPANY_OWNER_EMAIL = "fresh@ai-company.local";
+    try {
+      assert.equal(getMember("default", "fresh-owner", tmp), null);
+      const access = ensureHqAccess({
+        auth: auth("fresh-owner", "fresh@ai-company.local"),
+        repoRoot: tmp,
+      });
+      assert.equal(access.ok, true);
+      assert.ok(getMember("default", "fresh-owner", tmp));
+    } finally {
+      if (prevOwnerId === undefined) delete process.env.AI_COMPANY_OWNER_ID;
+      else process.env.AI_COMPANY_OWNER_ID = prevOwnerId;
+      if (prevOwnerEmail === undefined) delete process.env.AI_COMPANY_OWNER_EMAIL;
+      else process.env.AI_COMPANY_OWNER_EMAIL = prevOwnerEmail;
+    }
+  });
+
   it("denies unauthorized mutations without permission", () => {
     ensureDefaultWorkspace({
       userId: "owner-1",

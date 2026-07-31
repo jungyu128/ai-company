@@ -58,6 +58,8 @@ export function AiCompanyCeoDashboard({ initial }: Props) {
     initial.recommendations.some((r) => r.status === "pending") ||
     initial.commandCenter.workday.phase === "working";
 
+  const onlineCount = initial.employees.filter((e) => e.status !== "offline").length;
+
   useEffect(() => {
     if (!live) return;
     const id = window.setInterval(() => router.refresh(), 12_000);
@@ -69,50 +71,65 @@ export function AiCompanyCeoDashboard({ initial }: Props) {
   return (
     <HqShell
       workspaceId={workspaceId}
-      headline={initial.headline}
       live={live}
-      healthLabel={`Health ${initial.companyHealth.score}% · ${initial.companyHealth.label}`}
+      onlineCount={onlineCount}
       approvalCount={initial.pendingApprovals.length}
       ops={
         <div className="hq-ops-panels space-y-10">
-          <CeoApprovalCenter items={initial.pendingApprovals} />
-          <CeoCommandCenterView commandCenter={initial.commandCenter} />
-          <AiCompanyExecutiveDashboard
-            initial={initial.executive}
-            workspaceId={workspaceId}
-          />
-          <WorkspaceCollaborationPanel
-            activeWorkspaceId={workspaceId}
-            workspaces={initial.workspace.workspaces}
-            members={initial.workspace.members}
-            activityTimeline={initial.workspace.activityTimeline}
-            notifications={initial.workspace.notifications}
-          />
-          <AutonomousWorkdayPanel workday={initial.commandCenter.autonomousWorkday} />
-          <CompanyMemoryPanel
-            learnedPreferences={initial.commandCenter.companyMemory.learnedPreferences}
-            newInsights={initial.commandCenter.companyMemory.newInsights}
-            recentlyUpdated={initial.commandCenter.companyMemory.recentlyUpdated}
-            lastLearnedAt={initial.commandCenter.companyMemory.lastLearnedAt}
-          />
-          <div className="grid gap-6 lg:grid-cols-2">
+          <section id="ops-approvals">
+            <CeoApprovalCenter items={initial.pendingApprovals} />
+          </section>
+          <section id="ops-command">
+            <CeoCommandCenterView commandCenter={initial.commandCenter} />
+          </section>
+          <section id="ops-executive">
+            <AiCompanyExecutiveDashboard
+              initial={initial.executive}
+              workspaceId={workspaceId}
+            />
+          </section>
+          <section id="ops-workspace">
+            <WorkspaceCollaborationPanel
+              activeWorkspaceId={workspaceId}
+              workspaces={initial.workspace.workspaces}
+              members={initial.workspace.members}
+              activityTimeline={initial.workspace.activityTimeline}
+              notifications={initial.workspace.notifications}
+            />
+          </section>
+          <section id="ops-workday">
+            <AutonomousWorkdayPanel workday={initial.commandCenter.autonomousWorkday} />
+          </section>
+          <section id="ops-memory">
+            <CompanyMemoryPanel
+              learnedPreferences={initial.commandCenter.companyMemory.learnedPreferences}
+              newInsights={initial.commandCenter.companyMemory.newInsights}
+              recentlyUpdated={initial.commandCenter.companyMemory.recentlyUpdated}
+              lastLearnedAt={initial.commandCenter.companyMemory.lastLearnedAt}
+            />
+          </section>
+          <section id="ops-activity" className="grid gap-6 lg:grid-cols-2">
             <CompanyActivityFeed items={initial.activityFeed} />
             <MissionHistoryPanel records={initial.missionHistory} compact />
-          </div>
-          {initial.activeCollaborations.length > 0 ? (
-            <section>
-              <h3 className="text-xl font-semibold tracking-tight text-white/90">
-                Active collaborations
-              </h3>
-              <div className="mt-6 grid gap-4 lg:grid-cols-2">
-                {initial.activeCollaborations.slice(0, 4).map((mission) => (
-                  <div key={mission.id} className="hq-glass-panel p-5">
-                    <CollaborationChainView mission={mission} />
-                  </div>
-                ))}
-              </div>
-            </section>
-          ) : null}
+          </section>
+          <section id="ops-collaborations">
+            {initial.activeCollaborations.length > 0 ? (
+              <>
+                <h3 className="text-xl font-semibold tracking-tight text-white/90">
+                  Active collaborations
+                </h3>
+                <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                  {initial.activeCollaborations.slice(0, 4).map((mission) => (
+                    <div key={mission.id} className="hq-glass-panel p-5">
+                      <CollaborationChainView mission={mission} />
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-white/50">No active collaborations.</p>
+            )}
+          </section>
           <p className="text-center text-xs text-white/45">
             <Link href="/login" className="underline-offset-2 hover:underline">
               Owner session →

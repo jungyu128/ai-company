@@ -88,7 +88,7 @@ export function HqRecommendationCards({
           <p className="hq-recs__eyebrow">AI Recommendations</p>
           <h3 className="hq-recs__title">Decision cards</h3>
         </div>
-        <span className="hq-recs__count">{pending.length} open</span>
+        <span className="hq-recs__count">{pending.length} pending</span>
       </div>
 
       {error ? <p className="hq-recs__error">{error}</p> : null}
@@ -97,7 +97,7 @@ export function HqRecommendationCards({
         <p className="hq-recs__empty">No open recommendations.</p>
       ) : (
         <ul className="hq-recs__list">
-          {pending.slice(0, 2).map((rec) => {
+          {pending.slice(0, 3).map((rec) => {
             const owner =
               rec.conversationOwnerId ??
               rec.leadEmployeeId ??
@@ -145,7 +145,7 @@ export function HqRecommendationCards({
                 </button>
 
                 <label className="hq-rec__reassign">
-                  Reassign
+                  Assigned to
                   <select
                     value={reassignById[rec.id] ?? ""}
                     onChange={(e) =>
@@ -180,15 +180,7 @@ export function HqRecommendationCards({
                     onClick={() => void decide(rec.id, "ask")}
                     className="lo-btn lo-btn--ghost"
                   >
-                    Ask questions
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy || !reassignById[rec.id]}
-                    onClick={() => void decide(rec.id, "reassign")}
-                    className="lo-btn lo-btn--ghost"
-                  >
-                    Reassign
+                    Ask
                   </button>
                   <button
                     type="button"
@@ -197,6 +189,14 @@ export function HqRecommendationCards({
                     className="lo-btn lo-btn--ghost"
                   >
                     Delay
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || !reassignById[rec.id]}
+                    onClick={() => void decide(rec.id, "reassign")}
+                    className="lo-btn lo-btn--ghost"
+                  >
+                    Reassign
                   </button>
                   <button
                     type="button"

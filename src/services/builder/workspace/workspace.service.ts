@@ -3,6 +3,7 @@
  */
 
 import type { AuthContext } from "@/lib/auth";
+import { isPlatformOwnerUser } from "@/lib/auth";
 import { isInternalAiCompanyEnabled } from "../internal-ai-company";
 import { roleHasPermission, permissionsForRole } from "./permissions";
 import {
@@ -75,12 +76,15 @@ export function ensureHqAccess(input: {
   const userId = input.auth.user.id;
   const email = input.auth.user.email;
   const displayName = input.auth.user.name?.trim() || email;
+  const platformOwner = isPlatformOwnerUser(input.auth.user);
 
+  // Bootstrap / heal default-workspace membership for the configured platform owner.
   ensureDefaultWorkspace({
     userId,
     email,
     displayName,
     repoRoot: root,
+    ensureOwnerMembership: platformOwner,
   });
 
   const workspaceId = input.workspaceId?.trim() || DEFAULT_WORKSPACE_ID;
@@ -94,7 +98,20 @@ export function ensureHqAccess(input: {
     };
   }
 
-  const member = getMember(workspaceId, userId, root);
+  let member = getMember(workspaceId, userId, root);
+
+  // Platform owner must never be blocked from the default workspace.
+  if (!member && platformOwner && workspaceId === DEFAULT_WORKSPACE_ID) {
+    member = addOrUpdateMember({
+      workspaceId: DEFAULT_WORKSPACE_ID,
+      userId,
+      email,
+      displayName,
+      role: "owner",
+      repoRoot: root,
+    });
+  }
+
   if (!member) {
     appendAudit(
       {
