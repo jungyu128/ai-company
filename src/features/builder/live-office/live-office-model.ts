@@ -12,14 +12,19 @@ import type {
 import type { CollaborationMission } from "@/services/builder/collaboration.logic";
 import type { EmployeeRecommendation } from "@/services/builder/proactive.logic";
 import { formatHqTimeDisplay } from "@/services/builder/format-hq-display";
+import {
+  LIVE_OFFICE_VISUAL_META,
+  approvalZonePosition,
+  discussionPosition,
+  mapCardStatusToVisualState,
+  mapLiveWorkToVisualState,
+  separateOverlappingPositions,
+  shouldMoveToApprovalZone,
+  shouldMoveTowardPartner,
+  type LiveOfficeVisualState,
+} from "@/features/builder/live-office/live-office-visual-state";
 
-export type LiveOfficeVisualState =
-  | "idle"
-  | "thinking"
-  | "working"
-  | "discussion"
-  | "waiting_approval"
-  | "completed";
+export type { LiveOfficeVisualState } from "@/features/builder/live-office/live-office-visual-state";
 
 export type LiveOfficeDesk = {
   employeeId: string;
@@ -54,6 +59,12 @@ export type LiveOfficeEmployeeView = AiCompanyEmployeeCard & {
   desk: LiveOfficeDesk;
   /** When waiting approval, render near CEO zone instead of home desk. */
   atApprovalZone: boolean;
+  /** Real discussion partner id when moving toward a coworker. */
+  discussionPartnerId: string | null;
+  discussionPartnerName: string | null;
+  /** Resolved floor position after movement + de-overlap. */
+  renderX: number;
+  renderY: number;
   relatedMissionId: string | null;
   relatedMissionTitle: string | null;
   conversationPreview: Array<{
@@ -90,37 +101,31 @@ export const LIVE_OFFICE_DESKS: LiveOfficeDesk[] = [
 
 export const CEO_APPROVAL_ZONE = { x: 80, y: 76 };
 
-const VISUAL: Record<
-  LiveOfficeVisualState,
-  { label: string; emoji: string }
-> = {
-  idle: { label: "Idle", emoji: "🟢" },
-  thinking: { label: "Thinking", emoji: "💭" },
-  working: { label: "Working", emoji: "✍️" },
-  discussion: { label: "In Discussion", emoji: "🚶" },
-  waiting_approval: { label: "Waiting Approval", emoji: "⏳" },
-  completed: { label: "Completed", emoji: "✅" },
+const VISUAL_EMOJI: Record<LiveOfficeVisualState, string> = {
+  idle: "🟢",
+  planning: "💭",
+  working: "✍️",
+  reviewing: "🔎",
+  discussion: "🗣️",
+  waiting: "⏸️",
+  waiting_approval: "⏳",
+  blocked: "⛔",
+  completed: "✅",
 };
 
+/** @deprecated Prefer mapLiveWorkToOfficeState / mapLiveWorkToVisualState. */
 export function mapStatusToLiveOfficeState(
   status: AiCompanyEmployeeStatus
 ): LiveOfficeVisualState {
-  switch (status) {
-    case "thinking":
-      return "thinking";
-    case "working":
-      return "working";
-    case "collaborating":
-      return "discussion";
-    case "waiting_approval":
-      return "waiting_approval";
-    case "completed":
-      return "completed";
-    case "online":
-    case "offline":
-    default:
-      return "idle";
-  }
+  return mapCardStatusToVisualState(status);
+}
+
+export function mapLiveWorkToOfficeState(input: {
+  liveWorkStatus: string;
+  hasPendingApproval: boolean;
+  hasDiscussionPartner: boolean;
+}): LiveOfficeVisualState {
+  return mapLiveWorkToVisualState(input);
 }
 
 function deskFor(employeeId: string, department: string): LiveOfficeDesk {
@@ -205,6 +210,46 @@ function memoryHintsFromDashboard(
     .map((m) => m.title || m.insight);
 }
 
+function hasRealPendingApproval(
+  emp: AiCompanyEmployeeCard,
+  dash: AiCompanyDashboard
+): boolean {
+  if (emp.pendingApprovals > 0) return true;
+  if (
+    dash.pendingApprovals.some(
+      (a) =>
+        a.requestingEmployee.id === emp.id ||
+        a.collaborationChain.some((s) => s.employeeId === emp.id)
+    )
+  ) {
+    return true;
+  }
+  const queue = dash.ceoApprovalQueue?.items ?? [];
+  return queue.some(
+    (item) => item.status === "pending" && item.employee.id === emp.id
+  );
+}
+
+function discussionPartnerFor(
+  employeeId: string,
+  connections: LiveOfficeConnection[],
+  nameById: Map<string, string>
+): { id: string; name: string } | null {
+  const link = connections.find(
+    (c) =>
+      c.fromEmployeeId === employeeId || c.toEmployeeId === employeeId
+  );
+  if (!link) return null;
+  const partnerId =
+    link.fromEmployeeId === employeeId
+      ? link.toEmployeeId
+      : link.fromEmployeeId;
+  return {
+    id: partnerId,
+    name: nameById.get(partnerId) ?? partnerId,
+  };
+}
+
 export function buildLiveOfficeConnections(
   missions: CollaborationMission[],
   recommendations: EmployeeRecommendation[]
@@ -231,7 +276,6 @@ export function buildLiveOfficeConnections(
         source: "collaboration",
       });
     }
-    // Lead asking next collaborator for help
     const lead = mission.chain[0];
     const helper = mission.chain.find(
       (s) =>
@@ -328,7 +372,10 @@ export function buildLiveOfficeActivity(dash: AiCompanyDashboard): LiveOfficeAct
       atMs: when.atMs,
       summary: `${last.employeeName}: ${last.body.slice(0, 100)}`,
       tone: "neutral",
-      employeeId: last.employeeId === "ceo" || last.employeeId === "system" ? null : String(last.employeeId),
+      employeeId:
+        last.employeeId === "ceo" || last.employeeId === "system"
+          ? null
+          : String(last.employeeId),
     });
   }
 
@@ -343,19 +390,63 @@ export function buildLiveOfficeModel(dash: AiCompanyDashboard): LiveOfficeModel 
   const departments = [
     ...new Set(LIVE_OFFICE_DESKS.map((d) => d.department)),
   ];
+  const nameById = new Map(dash.employees.map((e) => [e.id, e.name]));
 
-  const employees: LiveOfficeEmployeeView[] = dash.employees.map((emp) => {
-    const visualState = mapStatusToLiveOfficeState(emp.status);
-    const meta = VISUAL[visualState];
+  const draft = dash.employees.map((emp) => {
+    const hasPendingApproval = hasRealPendingApproval(emp, dash);
+    const partner = discussionPartnerFor(emp.id, connections, nameById);
+    const hasDiscussionPartner = partner != null;
+    const visualState = mapLiveWorkToVisualState({
+      liveWorkStatus: emp.liveWork.status,
+      hasPendingApproval,
+      hasDiscussionPartner,
+    });
+    const meta = LIVE_OFFICE_VISUAL_META[visualState];
     const mission = relatedMission(emp.id, dash.activeCollaborations);
     const recommendation = relatedRecommendation(emp.id, dash.recommendations);
+    const desk = deskFor(emp.id, emp.department);
+    const atApprovalZone = shouldMoveToApprovalZone(
+      visualState,
+      hasPendingApproval
+    );
+    const moveToPartner = shouldMoveTowardPartner(
+      visualState,
+      hasDiscussionPartner
+    );
+
+    let renderX = desk.x;
+    let renderY = desk.y;
+    if (atApprovalZone) {
+      const pos = approvalZonePosition({
+        zone: CEO_APPROVAL_ZONE,
+        employeeId: emp.id,
+      });
+      renderX = pos.x;
+      renderY = pos.y;
+    } else if (moveToPartner && partner) {
+      const partnerDesk = deskFor(
+        partner.id,
+        dash.employees.find((e) => e.id === partner.id)?.department ?? "Team"
+      );
+      const pos = discussionPosition({
+        home: desk,
+        partner: partnerDesk,
+      });
+      renderX = pos.x;
+      renderY = pos.y;
+    }
+
     return {
       ...emp,
       visualState,
       visualLabel: meta.label,
-      visualEmoji: meta.emoji,
-      desk: deskFor(emp.id, emp.department),
-      atApprovalZone: visualState === "waiting_approval",
+      visualEmoji: VISUAL_EMOJI[visualState],
+      desk,
+      atApprovalZone,
+      discussionPartnerId: moveToPartner ? partner?.id ?? null : null,
+      discussionPartnerName: moveToPartner ? partner?.name ?? null : null,
+      renderX,
+      renderY,
       relatedMissionId: mission?.id ?? recommendation?.id ?? null,
       relatedMissionTitle: mission?.title ?? recommendation?.title ?? null,
       conversationPreview: conversationPreviewFor(
@@ -364,6 +455,20 @@ export function buildLiveOfficeModel(dash: AiCompanyDashboard): LiveOfficeModel 
         recommendation
       ),
       memoryHints: memoryHintsFromDashboard(emp.id, dash),
+    } satisfies LiveOfficeEmployeeView;
+  });
+
+  const separated = separateOverlappingPositions(
+    draft.map((e) => ({ id: e.id, x: e.renderX, y: e.renderY }))
+  );
+  const byId = new Map(separated.map((p) => [p.id, p]));
+
+  const employees: LiveOfficeEmployeeView[] = draft.map((e) => {
+    const pos = byId.get(e.id);
+    return {
+      ...e,
+      renderX: pos?.x ?? e.renderX,
+      renderY: pos?.y ?? e.renderY,
     };
   });
 
@@ -376,17 +481,21 @@ export function buildLiveOfficeModel(dash: AiCompanyDashboard): LiveOfficeModel 
   };
 }
 
-/** Resolve rendered position (approval zone overrides desk). */
+/** Resolve rendered position (uses precomputed renderX/Y when present). */
 export function renderPosition(emp: LiveOfficeEmployeeView): { x: number; y: number } {
+  if (
+    typeof emp.renderX === "number" &&
+    typeof emp.renderY === "number" &&
+    Number.isFinite(emp.renderX) &&
+    Number.isFinite(emp.renderY)
+  ) {
+    return { x: emp.renderX, y: emp.renderY };
+  }
   if (emp.atApprovalZone) {
-    // Fan waiting employees slightly around CEO zone
-    const waitingIndex = Math.abs(
-      emp.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0)
-    ) % 5;
-    return {
-      x: CEO_APPROVAL_ZONE.x - 16 + waitingIndex * 8,
-      y: CEO_APPROVAL_ZONE.y,
-    };
+    return approvalZonePosition({
+      zone: CEO_APPROVAL_ZONE,
+      employeeId: emp.id,
+    });
   }
   return { x: emp.desk.x, y: emp.desk.y };
 }

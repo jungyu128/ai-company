@@ -19,6 +19,8 @@ import { CompanyAnalyticsPanel } from "@/features/builder/components/company-ana
 import { HqShell } from "@/features/builder/components/hq-shell";
 import { HqRecommendationCards } from "@/features/builder/components/hq-recommendation-cards";
 import { AiCompanyEmployeeCardView } from "@/features/builder/components/ai-company-employee-card";
+import { LiveEmployeeStatusBar } from "@/features/builder/components/live-employee-status-bar";
+import { buildLiveEmployeeStatus } from "@/services/builder/live-employee-status";
 import {
   AiCompanyLiveOffice,
   useLiveOfficeModel,
@@ -178,21 +180,57 @@ export function AiCompanyCeoDashboard({ initial }: Props) {
           onSelect={setSelectedId}
         />
 
-        <section id="ops-live-employees" className="hq-employee-roster mt-8 px-4 md:px-6">
-          <div className="mb-4">
+        <section
+          id="ops-live-employees"
+          className="hq-live-status-section"
+          aria-label="Live Employee Status"
+        >
+          <div className="hq-live-status-section__head">
             <p className="hq-mono text-xs tracking-[0.18em] text-[var(--hq-signal)] uppercase">
               Live Employee Status
             </p>
-            <h3 className="mt-1 text-xl font-semibold tracking-tight text-white/90">
+            <h3 className="text-xl font-semibold tracking-tight text-white/90">
               Real-time work state
             </h3>
-            <p className="mt-1 text-sm text-white/55">
-              Status and progress come from Continuous OS / Live Work Tracker — never fabricated.
+            <p className="text-sm text-white/55">
+              Status and progress come from Continuous OS / Live Work Tracker —
+              never fabricated.
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="hq-live-status-grid">
             {initial.employees.map((employee) => (
-              <AiCompanyEmployeeCardView key={employee.id} employee={employee} />
+              <LiveEmployeeStatusBar
+                key={`status-${employee.id}`}
+                status={buildLiveEmployeeStatus({
+                  employeeId: employee.id,
+                  liveWork: employee.liveWork,
+                  currentTask:
+                    employee.currentTask ?? employee.liveWork.currentTask,
+                  lastUpdateFallback: employee.lastActivityDisplay,
+                })}
+              />
+            ))}
+          </div>
+        </section>
+
+        <section
+          id="ops-employee-cards"
+          className="hq-employee-cards"
+          aria-label="Employee cards"
+        >
+          <div className="hq-employee-cards__head">
+            <p className="hq-mono text-xs tracking-[0.18em] text-[var(--hq-signal)] uppercase">
+              Team
+            </p>
+            <h3 className="text-xl font-semibold tracking-tight text-white/90">
+              Employee cards
+            </h3>
+          </div>
+          <div className="hq-employee-cards-grid">
+            {initial.employees.map((employee) => (
+              <div key={employee.id} className="hq-employee-card-slot">
+                <AiCompanyEmployeeCardView employee={employee} />
+              </div>
             ))}
           </div>
         </section>

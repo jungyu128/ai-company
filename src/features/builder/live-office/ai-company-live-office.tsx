@@ -20,7 +20,15 @@ export function AiCompanyLiveOffice({ dashboard, selectedId, onSelect }: Props) 
   const model = useMemo(() => buildLiveOfficeModel(dashboard), [dashboard]);
   const deskCount = LIVE_OFFICE_DESKS.length;
   const workingCount = model.employees.filter((e) =>
-    ["working", "thinking", "discussion", "waiting_approval"].includes(e.visualState)
+    [
+      "working",
+      "planning",
+      "reviewing",
+      "discussion",
+      "waiting_approval",
+      "waiting",
+      "blocked",
+    ].includes(e.visualState)
   ).length;
   const focusMode = selectedId != null;
 

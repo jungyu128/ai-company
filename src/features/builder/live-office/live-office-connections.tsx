@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type {
   LiveOfficeConnection,
   LiveOfficeEmployeeView,
@@ -12,6 +13,16 @@ type Props = {
 };
 
 export function LiveOfficeConnections({ employees, connections }: Props) {
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReduceMotion(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
   if (connections.length === 0) return null;
 
   const byId = new Map(employees.map((e) => [e.id, e]));
@@ -22,6 +33,7 @@ export function LiveOfficeConnections({ employees, connections }: Props) {
       viewBox="0 0 100 100"
       preserveAspectRatio="none"
       aria-hidden
+      data-reduce-motion={reduceMotion ? "true" : "false"}
     >
       {connections.map((link) => {
         const from = byId.get(link.fromEmployeeId);
@@ -35,9 +47,11 @@ export function LiveOfficeConnections({ employees, connections }: Props) {
         return (
           <g key={link.id} className="lo-connection">
             <path d={d} className="lo-connection__line" />
-            <circle r="0.7" className="lo-connection__pulse">
-              <animateMotion dur="2.4s" repeatCount="indefinite" path={d} />
-            </circle>
+            {!reduceMotion ? (
+              <circle r="0.7" className="lo-connection__pulse">
+                <animateMotion dur="2.4s" repeatCount="indefinite" path={d} />
+              </circle>
+            ) : null}
           </g>
         );
       })}

@@ -288,20 +288,71 @@ html:has(.ai-hq) body {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.5rem 0.6rem 0.35rem;
+  gap: 1rem;
+  padding: 0.5rem 0.6rem 0.75rem;
   background: #0a0b0d;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .hq-main > .lo-stage {
-  flex: 1 1 0;
-  min-height: 0;
+  flex: 0 0 auto;
+  height: clamp(16rem, 42vh, 28rem);
+  min-height: 16rem;
+  max-height: 32rem;
+}
+
+.hq-live-status-section,
+.hq-employee-cards {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding: 0 0.35rem;
+}
+
+.hq-live-status-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hq-live-status-section__head,
+.hq-employee-cards__head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hq-live-status-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr));
+}
+
+.hq-employee-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-bottom: 0.25rem;
+}
+
+.hq-employee-cards-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
+}
+
+.hq-employee-card-slot {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .hq-main > .hq-dock {
   /* Sized against the main column (not raw vh) so status bar never clips actions */
-  flex: 0 1 36%;
+  flex: 0 0 auto;
   min-height: 11.25rem;
   max-height: 19rem;
   overflow: hidden;
@@ -968,14 +1019,109 @@ html:has(.ai-hq) body {
 }
 
 .lo-desk--working .lo-desk__keys,
-.lo-desk--thinking .lo-desk__keys {
+.lo-desk--planning .lo-desk__keys,
+.lo-desk--reviewing .lo-desk__keys {
   opacity: 1;
 }
 
 .lo-desk--idle .lo-desk__keys,
-.lo-desk--idle .lo-desk__mouse {
+.lo-desk--idle .lo-desk__mouse,
+.lo-desk--waiting .lo-desk__keys,
+.lo-desk--waiting .lo-desk__mouse,
+.lo-desk--waiting_approval .lo-desk__keys,
+.lo-desk--blocked .lo-desk__keys,
+.lo-desk--blocked .lo-desk__mouse,
+.lo-desk--completed .lo-desk__keys {
   animation-play-state: paused;
   opacity: 0.55;
+}
+
+.lo-desk__bubble {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.15rem);
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  width: max-content;
+  max-width: 7.6rem;
+  padding: 0.22rem 0.38rem 0.26rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(8, 10, 12, 0.92);
+  color: #e5e7eb;
+  box-shadow: 0 8px 18px -12px rgba(0, 0, 0, 0.85);
+  pointer-events: none;
+  line-height: 1.2;
+}
+
+.lo-desk__bubble-status {
+  font-size: 0.52rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: #6ee7b7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lo-desk__bubble-detail,
+.lo-desk__bubble-extra {
+  font-size: 0.46rem;
+  color: rgba(226, 232, 240, 0.72);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 7.2rem;
+}
+
+.lo-desk__bubble-extra {
+  color: rgba(251, 191, 36, 0.9);
+}
+
+.lo-desk__thought {
+  position: absolute;
+  left: 58%;
+  bottom: calc(100% + 2.35rem);
+  z-index: 3;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+
+.lo-desk__thought-dot {
+  width: 0.22rem;
+  height: 0.22rem;
+  border-radius: 999px;
+  background: rgba(147, 197, 253, 0.75);
+  margin-left: 0.15rem;
+  animation: lo-thought-pop 1.8s ease-in-out var(--lo-delay, 0s) infinite;
+}
+
+.lo-desk__thought-dot:nth-child(2) {
+  width: 0.3rem;
+  height: 0.3rem;
+  margin-left: 0.28rem;
+  animation-delay: calc(var(--lo-delay, 0s) + 0.15s);
+}
+
+.lo-desk__thought-cloud {
+  margin-top: 0.05rem;
+  max-width: 5.6rem;
+  padding: 0.2rem 0.35rem;
+  border-radius: 0.65rem;
+  background: rgba(30, 41, 59, 0.92);
+  border: 1px solid rgba(147, 197, 253, 0.35);
+  color: #dbeafe;
+  font-size: 0.44rem;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .lo-desk__tag {
@@ -1037,17 +1183,28 @@ html:has(.ai-hq) body {
   background: #34d399;
   animation: hq-pulse 1.6s ease-in-out infinite;
 }
-.lo-desk__dot--thinking {
+.lo-desk__dot--planning {
   background: #60a5fa;
   animation: hq-pulse 2s ease-in-out infinite;
+}
+.lo-desk__dot--reviewing {
+  background: #38bdf8;
+  animation: hq-pulse 1.9s ease-in-out infinite;
 }
 .lo-desk__dot--discussion {
   background: #818cf8;
   animation: hq-pulse 1.7s ease-in-out infinite;
 }
+.lo-desk__dot--waiting {
+  background: #94a3b8;
+}
 .lo-desk__dot--waiting_approval {
   background: #fb923c;
   animation: hq-pulse 1.35s ease-in-out infinite;
+}
+.lo-desk__dot--blocked {
+  background: #f87171;
+  animation: hq-pulse 1.2s ease-in-out infinite;
 }
 .lo-desk__dot--completed {
   background: #34d399;
@@ -1107,21 +1264,60 @@ html:has(.ai-hq) body {
   opacity: 0.9;
 }
 
-.lo-desk--thinking .lo-desk__monitor-glow {
+.lo-desk--planning .lo-desk__monitor-glow,
+.lo-desk--reviewing .lo-desk__monitor-glow {
   background: rgba(96, 165, 250, 0.18);
   box-shadow: 0 0 14px rgba(96, 165, 250, 0.24);
+}
+
+.lo-desk--planning .lo-desk__figure {
+  animation-name: lo-breathe, lo-think-sway;
+}
+
+.lo-desk--working .lo-desk__keys {
+  animation-duration: calc(var(--lo-dur-2, 1.5s) * 0.85);
+}
+
+.lo-desk--reviewing .lo-desk__head {
+  animation-name: lo-review-tilt;
 }
 
 .lo-desk--discussion .lo-desk__figure {
   animation-name: lo-breathe, lo-bob;
 }
 
-.lo-desk--waiting_approval .lo-desk__tag {
+.lo-desk--waiting_approval .lo-desk__tag,
+.lo-desk--waiting_approval .lo-desk__bubble {
   border-color: rgba(251, 146, 60, 0.4);
 }
 
-.lo-desk--completed .lo-desk__verb {
+.lo-desk--waiting_approval .lo-desk__bubble-status {
+  color: #fdba74;
+}
+
+.lo-desk--blocked .lo-desk__bubble {
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+.lo-desk--blocked .lo-desk__bubble-status {
+  color: #fca5a5;
+}
+
+.lo-desk--blocked .lo-desk__monitor-glow {
+  opacity: 0.15;
+  animation: none;
+}
+
+.lo-desk--completed .lo-desk__bubble-status {
   color: #86efac;
+}
+
+.lo-desk--completed .lo-desk__bubble {
+  animation: lo-complete-flash 1.6s ease-out 1;
+}
+
+.lo-desk--idle .lo-desk__figure {
+  animation-duration: calc(var(--lo-dur, 3s) * 1.35);
 }
 
 @keyframes lo-breathe {
@@ -1230,6 +1426,86 @@ html:has(.ai-hq) body {
   }
   50% {
     transform: translateY(-1.5px) scale(1.02);
+  }
+}
+
+@keyframes lo-think-sway {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(-1.5deg) scale(1.02);
+  }
+}
+
+@keyframes lo-review-tilt {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes lo-thought-pop {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes lo-complete-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(52, 211, 153, 0);
+  }
+  100% {
+    box-shadow: 0 8px 18px -12px rgba(0, 0, 0, 0.85);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lo-desk,
+  .lo-desk:not(.lo-desk--dimmed) {
+    transition: none;
+  }
+
+  .lo-desk__figure,
+  .lo-desk__head,
+  .lo-desk__blink,
+  .lo-desk__mouse,
+  .lo-desk__keys,
+  .lo-desk__lamp,
+  .lo-desk__monitor-glow,
+  .lo-mon--code > i,
+  .lo-mon--doc > i,
+  .lo-mon--email > i,
+  .lo-mon--chart > i,
+  .lo-mon--design > i,
+  .lo-mon__cursor,
+  .lo-desk__dot--working,
+  .lo-desk__dot--planning,
+  .lo-desk__dot--reviewing,
+  .lo-desk__dot--discussion,
+  .lo-desk__dot--waiting_approval,
+  .lo-desk__dot--blocked,
+  .lo-desk__thought-dot,
+  .lo-desk--completed .lo-desk__bubble,
+  .lo-connection__pulse {
+    animation: none !important;
+  }
+
+  .lo-desk__thought-cloud {
+    opacity: 0.95;
   }
 }
 
@@ -1895,7 +2171,34 @@ html:has(.ai-hq) body {
   flex-shrink: 0;
 }
 
-/* Responsive */
+/* Large desktop (≈1440–1920) — keep status and cards as separate rows */
+@media (min-width: 1440px) {
+  .hq-main > .lo-stage {
+    height: clamp(18rem, 44vh, 30rem);
+  }
+  .hq-live-status-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .hq-employee-cards-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1920px) {
+  .hq-main {
+    gap: 1.15rem;
+  }
+  .hq-main > .lo-stage {
+    height: clamp(20rem, 46vh, 34rem);
+  }
+  .lo-desk {
+    width: 7.4rem;
+  }
+  .lo-desk__bubble {
+    max-width: 8rem;
+  }
+}
+
 @media (max-width: 1280px) {
   .hq-recs__list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1910,15 +2213,26 @@ html:has(.ai-hq) body {
   .hq-dock {
     grid-template-columns: 1fr;
   }
+  .hq-main > .lo-stage {
+    height: clamp(14rem, 38vh, 24rem);
+  }
   .hq-main > .hq-dock {
-    flex-basis: 40%;
     max-height: 20rem;
+  }
+  .hq-live-status-grid {
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  }
+  .hq-employee-cards-grid {
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
   }
   .hq-recs__list {
     grid-template-columns: 1fr;
   }
   .lo-desk {
     width: 6.4rem;
+  }
+  .lo-desk__bubble {
+    max-width: 6.8rem;
   }
 }
 
@@ -1964,6 +2278,13 @@ html:has(.ai-hq) body {
   .hq-main > .hq-dock {
     height: auto;
     max-height: none;
+  }
+  .hq-main > .lo-stage {
+    height: clamp(14rem, 46vh, 22rem);
+  }
+  .hq-live-status-grid,
+  .hq-employee-cards-grid {
+    grid-template-columns: 1fr;
   }
   .lo-plate__live-clock {
     display: none;

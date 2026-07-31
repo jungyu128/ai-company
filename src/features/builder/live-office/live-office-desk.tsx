@@ -7,8 +7,7 @@ import {
   employeeMotionStyle,
   monitorKindFor,
 } from "@/features/builder/live-office/live-office-motion";
-import { buildLiveEmployeeStatus } from "@/services/builder/live-employee-status";
-import { LiveEmployeeStatusBar } from "@/features/builder/components/live-employee-status-bar";
+import { bubbleTextFor } from "@/features/builder/live-office/live-office-visual-state";
 
 type Props = {
   employee: LiveOfficeEmployeeView;
@@ -82,11 +81,17 @@ export function LiveOfficeDesk({ employee, selected, dimmed, onSelect }: Props) 
   const kind = monitorKindFor(employee);
   const z = selected ? 50 : Math.round(14 + pos.y);
   const motion = employeeMotionStyle(employee.id);
-  const liveStatus = buildLiveEmployeeStatus({
-    employeeId: employee.id,
-    liveWork: employee.liveWork,
+  const bubble = bubbleTextFor({
+    visualState: employee.visualState,
     currentTask: employee.currentTask ?? employee.liveWork.currentTask,
-    lastUpdateFallback: employee.lastActivityDisplay,
+    currentStep: employee.liveWork.currentStep,
+    waitingFor: employee.liveWork.waitingFor,
+    blockedReason:
+      employee.visualState === "blocked"
+        ? employee.liveWork.waitingFor
+        : null,
+    discussingWith: employee.discussionPartnerName,
+    progressPercent: employee.liveWork.progressPercent,
   });
 
   return (
@@ -111,9 +116,31 @@ export function LiveOfficeDesk({ employee, selected, dimmed, onSelect }: Props) 
       }
       onClick={() => onSelect(employee.id)}
       aria-pressed={selected}
-      aria-label={`${employee.name}, ${employee.role}, ${liveStatus.status}`}
+      aria-label={`${employee.name}, ${employee.role}, ${bubble.status}`}
+      data-visual-state={employee.visualState}
+      data-employee-desk={employee.id}
     >
-      <LiveEmployeeStatusBar status={liveStatus} compact />
+      <span className="lo-desk__bubble" aria-hidden={false}>
+        <span className="lo-desk__bubble-status">{bubble.status}</span>
+        <span className="lo-desk__bubble-detail" title={bubble.detail}>
+          {bubble.detail}
+        </span>
+        {bubble.extra ? (
+          <span className="lo-desk__bubble-extra" title={bubble.extra}>
+            {bubble.extra}
+          </span>
+        ) : null}
+      </span>
+
+      {employee.visualState === "planning" ? (
+        <span className="lo-desk__thought" aria-hidden>
+          <span className="lo-desk__thought-dot" />
+          <span className="lo-desk__thought-dot" />
+          <span className="lo-desk__thought-cloud">
+            {(employee.liveWork.currentStep || "Planning").slice(0, 28)}
+          </span>
+        </span>
+      ) : null}
 
       <span className="lo-desk__seat" aria-hidden>
         <span className="lo-desk__figure">
@@ -149,10 +176,6 @@ export function LiveOfficeDesk({ employee, selected, dimmed, onSelect }: Props) 
             <span className="lo-desk__name">{employee.name}</span>
             <span className="lo-desk__role">{employee.role}</span>
           </span>
-        </span>
-        <span className="lo-desk__verb">{liveStatus.status}</span>
-        <span className="lo-desk__task" title={liveStatus.currentTask ?? "None"}>
-          {liveStatus.currentTask ?? "No active task"}
         </span>
       </span>
     </button>

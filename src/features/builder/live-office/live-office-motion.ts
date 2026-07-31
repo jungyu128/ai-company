@@ -38,6 +38,14 @@ export function monitorKindFor(employee: {
   visualState: string;
 }): MonitorKind {
   const blob = `${employee.role} ${employee.currentTask ?? ""} ${employee.currentActivity ?? ""}`.toLowerCase();
+  if (
+    employee.visualState === "reviewing" ||
+    employee.visualState === "waiting_approval" ||
+    employee.visualState === "blocked"
+  ) {
+    return "document";
+  }
+  if (employee.visualState === "planning") return "document";
   if (blob.includes("design") || blob.includes("ui") || blob.includes("front")) return "design";
   if (blob.includes("email") || blob.includes("mail") || blob.includes("sales")) return "email";
   if (
@@ -51,8 +59,7 @@ export function monitorKindFor(employee: {
     blob.includes("doc") ||
     blob.includes("brief") ||
     blob.includes("report") ||
-    blob.includes("read") ||
-    employee.visualState === "waiting_approval"
+    blob.includes("read")
   )
     return "document";
   if (
