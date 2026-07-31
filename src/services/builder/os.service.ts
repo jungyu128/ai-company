@@ -46,6 +46,10 @@ import { getConnectionStatusesSync } from "./execution/connection-status";
 import type { ConnectionStatus, ExecutionRecord } from "./execution/types";
 import type { AutonomousWorkday } from "./workday/types";
 import { getAutonomousWorkday } from "./workday/workday.service";
+import {
+  ensureContinuousOsHeartbeat,
+  runContinuousOsTick,
+} from "./continuous-os";
 
 export type ProductivityTrendPoint = {
   day: string;
@@ -106,6 +110,15 @@ export function runCompanyOperatingSystem(options?: {
   const workspaceId = options?.workspaceId ?? "default";
   const now = options?.now ?? new Date().toISOString();
   const missions = listCollaborations(root, workspaceId);
+
+  // Continuous OS: employees plan/work/review independently (includes autonomy cycle, throttled)
+  ensureContinuousOsHeartbeat({ workspaceId, repoRoot: root });
+  runContinuousOsTick({
+    repoRoot: root,
+    workspaceId,
+    now,
+    deliverToChat: true,
+  });
 
   // Learning: record outcomes for finished missions
   const finished = missions.filter(

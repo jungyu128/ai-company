@@ -68,6 +68,26 @@ export function AiCompanyCeoDashboard({ initial }: Props) {
 
   const workspaceId = initial.workspace.activeWorkspaceId;
 
+  // Employees proactively open the conversation for reports / risks / approvals.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/builder/hq/chat?proactive=1&workspaceId=${encodeURIComponent(workspaceId)}`
+        );
+        const data = (await res.json()) as { ok?: boolean; employeeIds?: string[] };
+        if (cancelled || !res.ok || !data.ok || !data.employeeIds?.length) return;
+        setSelectedId((current) => current ?? data.employeeIds![0] ?? null);
+      } catch {
+        /* ignore — selection remains manual */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId, initial.recommendations.length, initial.pendingApprovals.length]);
+
   return (
     <HqShell
       workspaceId={workspaceId}
