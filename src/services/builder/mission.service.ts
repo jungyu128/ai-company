@@ -9,7 +9,6 @@ import { generateMissionPlan, type MissionPlan } from "./mission-plan";
 import { validateCeoMissionInput } from "./mission-validation";
 import { getBuilderHqSnapshot, type BuilderHqSnapshot } from "./hq.service";
 import { isInternalAiCompanyEnabled } from "./internal-ai-company";
-import { matchEmployeeIdForText } from "./ai-company-employees";
 import { planCollaborationChain, type CollaborationMission } from "./collaboration.logic";
 import { upsertCollaboration } from "./collaboration.store";
 import { prepareExternalWorkForEmployee } from "./execution/execution.service";
@@ -17,6 +16,8 @@ import type { ExecutionRecord } from "./execution/types";
 import { DEFAULT_WORKSPACE_ID } from "./workspace/types";
 import { recordWorkspaceEvent } from "./workspace/collaboration-feed";
 import type { WorkspaceHumanRole } from "./workspace/types";
+import { resolveMissionOwnerFromCeoText } from "./employee-message-routing.logic";
+import { recordCompanyTimelineEvent } from "./company-timeline";
 import {
   deleteText,
   exists,
@@ -475,8 +476,11 @@ export async function createCeoMission(
     };
   }
 
-  const leadEmployeeId =
-    employeeId ?? matchEmployeeIdForText(`${title} ${mission}`) ?? "emma";
+  const ownership = resolveMissionOwnerFromCeoText(`${title} ${mission}`, {
+    preferredEmployeeId: employeeId,
+    fallbackOwnerEmployeeId: "emma",
+  });
+  const leadEmployeeId = ownership.ownerEmployeeId;
   const collaboration = planCollaborationChain({
     missionId: taskId,
     title,
@@ -485,8 +489,27 @@ export async function createCeoMission(
     planSummary: plan.summary,
     planSteps: plan.steps,
     now: new Date().toISOString(),
+    ownershipMode: ownership.ownershipMode,
   });
   upsertCollaboration(collaboration, root, options?.workspaceId ?? DEFAULT_WORKSPACE_ID);
+
+  // Route work assignment onto the Timeline under the assigned owner.
+  try {
+    recordCompanyTimelineEvent({
+      kind: "work_assigned",
+      summary: `Mission “${title}” assigned to ${leadEmployeeId}`,
+      employeeId: leadEmployeeId,
+      relatedType: "mission",
+      relatedId: taskId,
+      actorName: options?.actor?.displayName ?? "CEO",
+      actorUserId: options?.actor?.userId ?? null,
+      actorRole: "owner",
+      repoRoot: root,
+      workspaceId: options?.workspaceId ?? DEFAULT_WORKSPACE_ID,
+    });
+  } catch {
+    /* timeline optional for mission create */
+  }
 
   // Execution Layer: prepare external preview for mapped employees (never auto-write).
   let execution: ExecutionRecord | null = null;
@@ -506,7 +529,7 @@ export async function createCeoMission(
     recordWorkspaceEvent({
       workspaceId: options.workspaceId ?? DEFAULT_WORKSPACE_ID,
       kind: "assignment",
-      summary: `${options.actor.displayName} assigned “${title}”`,
+      summary: `${options.actor.displayName} assigned “${title}” to ${leadEmployeeId}`,
       actorUserId: options.actor.userId,
       actorName: options.actor.displayName,
       actorRole: options.actor.role,

@@ -24,12 +24,14 @@ import {
 import {
   buildReassignmentEventTurn,
   deriveParticipantsFromConversationTurns,
-  detectCollaborationRequest,
-  isExplicitCeoReassignment,
-  resolveExplicitCeoAddressee,
   selectRelevantDiscussionParticipants,
   validateDiscussionParticipantIntegrity,
 } from "./ceo-discussion-orchestration.logic";
+import {
+  canEmployeeRespondToCeoMessage,
+  resolveStrictMessageRoute,
+  withOwnerInvites,
+} from "./employee-message-routing.logic";
 import {
   defaultLiveDataAvailability,
   type LiveDataAvailability,
@@ -700,10 +702,13 @@ export function applyRecommendationDecision(
     case "ask": {
       next.status = "questioned";
       const ceoMessage = note ?? "Can you clarify the recommendation?";
-      let ownerId = resolveConversationOwner({
-        conversationOwnerId: next.conversationOwnerId,
-        leadEmployeeId: next.leadEmployeeId,
+      const route = resolveStrictMessageRoute({
+        ceoMessage,
+        currentOwnerEmployeeId: next.conversationOwnerId,
+        currentLeadEmployeeId: next.leadEmployeeId,
+        invitedEmployeeIds: next.invitedEmployeeIds ?? [],
       });
+      let ownerId = route.ownerEmployeeId;
       const turns: ConversationTurn[] = [...next.internalDiscussion];
       let tOffset = 0;
       const stamp = (sec: number) =>
@@ -721,19 +726,20 @@ export function applyRecommendationDecision(
       });
       tOffset += 10;
 
-      // 2) Explicit CEO addressee → reassignment
-      const addressed = resolveExplicitCeoAddressee(ceoMessage);
-      if (addressed && isExplicitCeoReassignment(ceoMessage, ownerId)) {
-        const previousOwner = ownerId;
+      // 2) Explicit CEO addressee → conversation + mission ownership
+      const previousOwner = resolveConversationOwner({
+        conversationOwnerId: rec.conversationOwnerId,
+        leadEmployeeId: rec.leadEmployeeId,
+      });
+      if (route.addressedEmployeeId && previousOwner !== ownerId) {
         const transferred = transferConversationOwner({
           ownership: {
-            ownerEmployeeId: ownerId,
+            ownerEmployeeId: previousOwner,
             invitedEmployeeIds: next.invitedEmployeeIds ?? [],
           },
-          newOwnerEmployeeId: addressed,
+          newOwnerEmployeeId: ownerId,
         });
         ownerId = transferred.ownerEmployeeId;
-        next.conversationOwnerId = ownerId;
         next.invitedEmployeeIds = transferred.invitedEmployeeIds;
         next.suggestedInvitees = suggestedCollaboratorsForOwner(ownerId);
         turns.push(
@@ -745,11 +751,18 @@ export function applyRecommendationDecision(
           })
         );
         tOffset += 10;
-      } else {
-        next.conversationOwnerId = ownerId;
+      }
+      next.conversationOwnerId = ownerId;
+      if (route.addressedEmployeeId) {
+        next.leadEmployeeId = ownerId;
+        next.suggestedInvitees = suggestedCollaboratorsForOwner(ownerId);
       }
 
-      const wantsCollab = detectCollaborationRequest(ceoMessage);
+      if (!canEmployeeRespondToCeoMessage({ ...route, ownerEmployeeId: ownerId, allowedResponderIds: [ownerId] }, ownerId)) {
+        throw new Error("STRICT_ROUTING_OWNER_MISMATCH");
+      }
+
+      const wantsCollab = route.collaborationRequested;
       const peerIds = wantsCollab
         ? selectRelevantDiscussionParticipants({
             ownerEmployeeId: ownerId,
@@ -836,6 +849,15 @@ export function applyRecommendationDecision(
           unavailable.push(inviteeId);
         }
       }
+
+      // Preserve autonomous collaboration after ownership: expand invited set.
+      ownership = {
+        ownerEmployeeId: ownerId,
+        invitedEmployeeIds: withOwnerInvites(
+          { ...route, ownerEmployeeId: ownerId },
+          ownership.invitedEmployeeIds
+        ).allowedParticipantIds.filter((id) => id !== ownerId),
+      };
 
       if (unavailable.length > 0) {
         const names = unavailable

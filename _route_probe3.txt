@@ -1,0 +1,24 @@
+﻿conversation.logic.ts:93:sarah: {
+conversation.logic.ts:108:alex: {
+conversation.logic.ts:118:noah: {
+conversation.logic.ts:259:: step.employeeId === "alex"
+ai-company-employees.ts:4:* CEO may explicitly modify a permanent role via ceoModifyPermanentRole (gated).
+ai-company-employees.ts:68:* Permanent roster — order and roles must not change unless CEO explicitly modifies.
+ai-company-employees.ts:72:id: "sarah",
+ai-company-employees.ts:73:name: "Sarah",
+ai-company-employees.ts:120:id: "alex",
+ai-company-employees.ts:121:name: "Alex",
+ai-company-employees.ts:189:"route",
+ai-company-employees.ts:209:id: "noah",
+ai-company-employees.ts:210:name: "Noah",
+ai-company-employees.ts:279:"Does the design keep boundaries clean and risks explicit before coding?",
+ai-company-employees.ts:447:"sarah",
+ai-company-employees.ts:448:"alex",
+ai-company-employees.ts:450:"noah",
+ai-company-employees.ts:460:sarah: "Product Manager",
+ai-company-employees.ts:461:alex: "Frontend Engineer",
+ai-company-employees.ts:463:noah: "Chief AI Engineer",
+ai-company-employees.ts:521:* Returns ok:false unless explicitlyAllowRoleChange is true (mission assignment is never enough).
+ai-company-employees.ts:527:explicitlyAllowRoleChange: boolean;
+ai-company-employees.ts:539:if (!input.explicitlyAllowRoleChange) {
+ai-company-employees.ts:544:"Permanent roles are locked. Pass explicitlyAllowRoleChange=true for an intentional CEO role change. Missions cannot override roles.",

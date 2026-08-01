@@ -383,14 +383,16 @@ export function suggestedCollaboratorsForOwner(ownerEmployeeId: string): string[
   const map: Record<string, string[]> = {
     sarah: ["david", "emma"],
     emma: ["sarah"],
-    alex: ["mia"],
+    alex: ["emma", "sarah"],
     david: ["emma", "sarah"],
-    mia: ["alex", "david"],
-    noah: ["sarah", "emma"],
-    olivia: ["david"],
-    ethan: ["emma"],
+    noah: ["sarah", "olivia"],
+    olivia: ["david", "emma"],
+    daniel: ["sophia", "emma"],
+    sophia: ["olivia", "sarah"],
   };
-  return (map[ownerEmployeeId] ?? []).filter((id) => id !== ownerEmployeeId);
+  return (map[ownerEmployeeId] ?? []).filter(
+    (id) => id !== ownerEmployeeId && Boolean(getEmployeeDefinition(id))
+  );
 }
 
 /**

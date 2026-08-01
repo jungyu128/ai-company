@@ -1,8 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import type { CompanyMemory } from "@/services/builder/memory/types";
+import {
+  applyInsightActionOptimistic,
+  type InsightAction,
+  type MemoryInsightSnapshot,
+} from "@/features/builder/lib/company-memory-insight-actions";
 
 type Props = {
   learnedPreferences: CompanyMemory[];
@@ -11,6 +16,11 @@ type Props = {
   lastLearnedAt: string | null;
 };
 
+type ToastState = {
+  tone: "success" | "error";
+  message: string;
+} | null;
+
 export function CompanyMemoryPanel({
   learnedPreferences,
   newInsights,
@@ -18,36 +28,101 @@ export function CompanyMemoryPanel({
   lastLearnedAt,
 }: Props) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastState>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const inFlight = useRef(false);
 
-  async function act(
-    action: "accept" | "ignore" | "remove" | "reset",
-    memoryId?: string
-  ) {
-    setError(null);
-    setPendingId(memoryId ?? "reset");
-    try {
-      const res = await fetch("/api/builder/hq/memory", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          action === "reset" ? { action: "reset" } : { action, memoryId }
-        ),
-      });
-      const data = (await res.json()) as { ok?: boolean; error?: string };
-      if (!res.ok || !data.ok) {
-        setError(data.error ?? "Could not update memory");
-        return;
+  const [local, setLocal] = useState<MemoryInsightSnapshot>({
+    newInsights,
+    learnedPreferences,
+    recentlyUpdated,
+  });
+
+  // Sync from server when props refresh (after successful action)
+  useEffect(() => {
+    if (inFlight.current || pendingId) return;
+    setLocal({ newInsights, learnedPreferences, recentlyUpdated });
+  }, [newInsights, learnedPreferences, recentlyUpdated, pendingId]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), 3200);
+    return () => window.clearTimeout(t);
+  }, [toast]);
+
+  const act = useCallback(
+    async (action: InsightAction | "reset", memoryId?: string) => {
+      if (inFlight.current) return;
+      inFlight.current = true;
+      setToast(null);
+
+      const previous = local;
+      const targetId = memoryId ?? "reset";
+      setPendingId(targetId);
+
+      if (action !== "reset" && memoryId) {
+        setLocal((snap) => applyInsightActionOptimistic(snap, memoryId, action));
       }
-      startTransition(() => router.refresh());
-    } catch {
-      setError("Network error while updating memory");
-    } finally {
-      setPendingId(null);
-    }
-  }
+
+      try {
+        const res = await fetch("/api/builder/hq/memory", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            action === "reset" ? { action: "reset" } : { action, memoryId }
+          ),
+        });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          error?: string;
+          dashboard?: MemoryInsightSnapshot;
+        };
+        if (!res.ok || !data.ok) {
+          setLocal(previous);
+          setToast({
+            tone: "error",
+            message: data.error ?? "Could not update insight",
+          });
+          return;
+        }
+
+        if (data.dashboard) {
+          setLocal({
+            newInsights: data.dashboard.newInsights ?? [],
+            learnedPreferences: data.dashboard.learnedPreferences ?? [],
+            recentlyUpdated: data.dashboard.recentlyUpdated ?? [],
+          });
+        }
+
+        const successMsg =
+          action === "accept"
+            ? "Insight accepted — removed from Pending, learning updated"
+            : action === "ignore"
+              ? "Insight ignored — recorded in analytics and audit"
+              : action === "remove"
+                ? "Insight removed permanently"
+                : "Memories reset";
+        setToast({ tone: "success", message: successMsg });
+
+        startTransition(() => {
+          router.refresh();
+        });
+      } catch {
+        setLocal(previous);
+        setToast({
+          tone: "error",
+          message: "Network error while updating insight",
+        });
+      } finally {
+        inFlight.current = false;
+        setPendingId(null);
+      }
+    },
+    [local, router]
+  );
+
+  const busy = pendingId != null || isPending;
 
   return (
     <section className="space-y-6">
@@ -67,7 +142,7 @@ export function CompanyMemoryPanel({
           </div>
           <button
             type="button"
-            disabled={isPending}
+            disabled={busy}
             onClick={() => void act("reset")}
             className="rounded-xl border border-[var(--hq-warn)]/40 bg-[var(--hq-warn-soft)] px-4 py-2.5 text-sm text-[var(--hq-warn)] disabled:opacity-50"
           >
@@ -83,34 +158,46 @@ export function CompanyMemoryPanel({
             No learning pass yet — complete a workday to generate insights.
           </p>
         )}
-        {error ? (
-          <p className="mt-4 rounded-lg bg-[var(--hq-warn-soft)] px-3 py-2 text-sm text-[var(--hq-warn)]">
-            {error}
-          </p>
-        ) : null}
       </div>
+
+      {toast ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            toast.tone === "success"
+              ? "border-emerald-400/40 bg-emerald-50/80 text-emerald-900"
+              : "border-[var(--hq-warn)]/40 bg-[var(--hq-warn-soft)] text-[var(--hq-warn)]"
+          }`}
+        >
+          {toast.message}
+        </div>
+      ) : null}
 
       <MemoryGroup
         title="New insights"
         empty="No pending insights."
-        items={newInsights}
+        items={local.newInsights}
         pendingId={pendingId}
+        busy={busy}
         onAct={act}
         showActions
       />
       <MemoryGroup
         title="Learned preferences"
         empty="No accepted preferences yet."
-        items={learnedPreferences}
+        items={local.learnedPreferences}
         pendingId={pendingId}
+        busy={busy}
         onAct={act}
         showActions
       />
       <MemoryGroup
         title="Recently updated"
         empty="No memories yet."
-        items={recentlyUpdated}
+        items={local.recentlyUpdated}
         pendingId={pendingId}
+        busy={busy}
         onAct={act}
         showActions={false}
       />
@@ -123,6 +210,7 @@ function MemoryGroup({
   empty,
   items,
   pendingId,
+  busy,
   onAct,
   showActions,
 }: {
@@ -130,7 +218,8 @@ function MemoryGroup({
   empty: string;
   items: CompanyMemory[];
   pendingId: string | null;
-  onAct: (action: "accept" | "ignore" | "remove", memoryId: string) => void;
+  busy: boolean;
+  onAct: (action: InsightAction, memoryId: string) => void;
   showActions: boolean;
 }) {
   return (
@@ -141,11 +230,14 @@ function MemoryGroup({
       ) : (
         <ul className="mt-4 space-y-3">
           {items.map((m) => {
-            const busy = pendingId === m.id;
+            const rowBusy = pendingId === m.id;
+            const disabled = busy;
             return (
               <li
                 key={m.id}
-                className="rounded-xl border border-[var(--hq-line)]/70 bg-white px-4 py-3 text-sm"
+                className={`rounded-xl border border-[var(--hq-line)]/70 bg-white px-4 py-3 text-sm ${
+                  rowBusy ? "opacity-70" : ""
+                }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
@@ -156,7 +248,7 @@ function MemoryGroup({
                     </p>
                   </div>
                   <span className="text-[11px] capitalize text-[var(--hq-muted)]">
-                    {m.ceoStatus}
+                    {rowBusy ? "Saving…" : m.ceoStatus}
                   </span>
                 </div>
                 <p className="mt-2 text-xs text-[var(--hq-muted)]">{m.insight}</p>
@@ -169,29 +261,32 @@ function MemoryGroup({
                       <>
                         <button
                           type="button"
-                          disabled={busy}
+                          disabled={disabled}
+                          aria-busy={rowBusy}
                           onClick={() => onAct("accept", m.id)}
-                          className="rounded-lg bg-[var(--hq-signal)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                          className="rounded-lg bg-[var(--hq-signal)] px-3 py-1.5 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          Accept
+                          {rowBusy ? "Accepting…" : "Accept"}
                         </button>
                         <button
                           type="button"
-                          disabled={busy}
+                          disabled={disabled}
+                          aria-busy={rowBusy}
                           onClick={() => onAct("ignore", m.id)}
-                          className="rounded-lg border border-[var(--hq-line)] bg-white px-3 py-1.5 text-xs disabled:opacity-50"
+                          className="rounded-lg border border-[var(--hq-line)] bg-white px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          Ignore
+                          {rowBusy ? "Ignoring…" : "Ignore"}
                         </button>
                       </>
                     ) : null}
                     <button
                       type="button"
-                      disabled={busy}
+                      disabled={disabled}
+                      aria-busy={rowBusy}
                       onClick={() => onAct("remove", m.id)}
-                      className="rounded-lg border border-[var(--hq-warn)]/40 bg-[var(--hq-warn-soft)] px-3 py-1.5 text-xs text-[var(--hq-warn)] disabled:opacity-50"
+                      className="rounded-lg border border-[var(--hq-warn)]/40 bg-[var(--hq-warn-soft)] px-3 py-1.5 text-xs text-[var(--hq-warn)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Remove
+                      {rowBusy ? "Removing…" : "Remove"}
                     </button>
                   </div>
                 ) : null}

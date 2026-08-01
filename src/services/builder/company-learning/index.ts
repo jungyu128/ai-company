@@ -26,6 +26,7 @@ export {
 
 export {
   appendEvolutionSignals,
+  appendKnowledgeRecords,
   appendMissionLesson,
   getCompanyKnowledgeStore,
   hasLessonForMission,

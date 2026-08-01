@@ -23,6 +23,11 @@ import {
   type InboxMessage,
   type MissionFinalOutcome,
 } from "./conversation.logic";
+import {
+  dependencyEmployeeIdsForWork,
+  type OwnershipMode,
+} from "./employee-message-routing.logic";
+import { resolveExplicitCeoAddressee } from "./ceo-discussion-orchestration.logic";
 
 export type CollaborationStageKind =
   | "analyze"
@@ -98,7 +103,9 @@ function stageForIndex(index: number, total: number): CollaborationStageKind {
 
 /**
  * Build a multi-employee collaboration chain for a CEO mission.
- * Lead employee is always first; additional specialists are inferred from the mission text.
+ * Lead employee is always first.
+ * In strict mode (CEO addressed someone by name), peers join only via hard
+ * dependency — not soft collaborator suggestions — so others cannot intercept.
  */
 export function planCollaborationChain(input: {
   missionId: string;
@@ -108,26 +115,55 @@ export function planCollaborationChain(input: {
   planSummary: string;
   planSteps: string[];
   now?: string;
+  /** strict = owner + dependency only; collaborative = legacy inferred chain */
+  ownershipMode?: OwnershipMode;
 }): CollaborationMission {
   const now = input.now ?? new Date().toISOString();
   const lead = getEmployeeDefinition(input.leadEmployeeId);
   const leadId = lead?.id ?? AI_COMPANY_EMPLOYEES[0].id;
+  const corpus = `${input.title}\n${input.mission}`;
+  const addressed = resolveExplicitCeoAddressee(corpus);
+  const ownershipMode: OwnershipMode =
+    input.ownershipMode ??
+    (addressed && addressed === leadId ? "strict" : "collaborative");
 
-  const inferred = matchEmployeeIdsForText(input.mission).filter((id) => id !== leadId);
-  const preferred = DEFAULT_CHAIN_BY_LEAD[leadId] ?? [leadId];
-  const orderedIds: string[] = [];
-  for (const id of [leadId, ...preferred.filter((p) => p !== leadId), ...inferred]) {
-    if (!orderedIds.includes(id) && getEmployeeDefinition(id)) orderedIds.push(id);
-  }
-  // Cap chain length for readability; always end with an approval-capable executor.
-  const chainIds = orderedIds.slice(0, 4);
-  if (chainIds.length === 1 && leadId !== "emma") {
-    // Verification handoff when mission mentions notify/email/follow-up.
-    const extras = matchEmployeeIdsForText(input.mission);
-    if (extras.includes("emma") || /send|email|notify|follow.?up|verify|test/i.test(input.mission)) {
-      if (getEmployeeDefinition("emma")) chainIds.push("emma");
+  const orderedIds: string[] = [leadId];
+
+  if (ownershipMode === "strict") {
+    for (const id of dependencyEmployeeIdsForWork({
+      text: corpus,
+      ownerEmployeeId: leadId,
+    })) {
+      if (!orderedIds.includes(id) && getEmployeeDefinition(id)) {
+        orderedIds.push(id);
+      }
+    }
+  } else {
+    const inferred = matchEmployeeIdsForText(input.mission).filter(
+      (id) => id !== leadId
+    );
+    const preferred = DEFAULT_CHAIN_BY_LEAD[leadId] ?? [leadId];
+    for (const id of [
+      ...preferred.filter((p) => p !== leadId),
+      ...inferred,
+    ]) {
+      if (!orderedIds.includes(id) && getEmployeeDefinition(id)) {
+        orderedIds.push(id);
+      }
+    }
+    // Cap chain length for readability; always end with an approval-capable executor.
+    if (orderedIds.length === 1 && leadId !== "emma") {
+      const extras = matchEmployeeIdsForText(input.mission);
+      if (
+        extras.includes("emma") ||
+        /send|email|notify|follow.?up|verify|test/i.test(input.mission)
+      ) {
+        if (getEmployeeDefinition("emma")) orderedIds.push("emma");
+      }
     }
   }
+
+  const chainIds = orderedIds.slice(0, 4);
 
   const chain: CollaborationStep[] = chainIds.map((employeeId, index) => {
     const emp = getEmployeeDefinition(employeeId);

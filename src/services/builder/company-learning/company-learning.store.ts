@@ -150,6 +150,31 @@ export function appendEvolutionSignals(input: {
   return added;
 }
 
+export function appendKnowledgeRecords(input: {
+  knowledge: KnowledgeRecord[];
+  summary?: string;
+  repoRoot?: string;
+  workspaceId?: string;
+  at?: string;
+}): number {
+  if (input.knowledge.length === 0) return 0;
+  const root = path.resolve(input.repoRoot ?? process.cwd());
+  const workspaceId = input.workspaceId ?? DEFAULT_WORKSPACE_ID;
+  const at = input.at ?? new Date().toISOString();
+  const store = readStore(root, workspaceId);
+  const ledger: KnowledgeLedgerEntry[] = input.knowledge.map((k) => ({
+    id: `led-${k.id}`,
+    at: k.createdAt || at,
+    op: "record_knowledge" as const,
+    entityId: k.id,
+    summary: input.summary ?? `${k.category}: ${k.title}`,
+  }));
+  store.knowledge = [...input.knowledge, ...store.knowledge];
+  store.ledger = [...ledger, ...store.ledger];
+  writeStore(root, workspaceId, store);
+  return input.knowledge.length;
+}
+
 export function listLessons(
   repoRoot = process.cwd(),
   workspaceId = DEFAULT_WORKSPACE_ID

@@ -28,6 +28,9 @@ const KIND_DOT: Record<CompanyTimelineEventKind, string> = {
   discussion: "bg-fuchsia-400",
   execution: "bg-emerald-600",
   deployment_ready: "bg-orange-400",
+  insight_accepted: "bg-emerald-500",
+  insight_ignored: "bg-slate-400",
+  insight_removed: "bg-rose-400",
 };
 
 export function CompanyActivityTimeline({ events }: Props) {

@@ -1,0 +1,80 @@
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\collaboration.logic.ts:125:    // Verification handoff when mission mentions notify/email/follow-up.
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\analytics\analytics.logic.ts:49:    const owned = tasks.filter((t) => t.ownerEmployeeId === emp.id);
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\analytics\analytics.logic.ts:92:    byEmp.set(t.ownerEmployeeId, (byEmp.get(t.ownerEmployeeId) ?? 0) + 1);
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\analytics\analytics.logic.ts:94:      getEmployeeDefinition(t.ownerEmployeeId)?.department ?? "Unknown";
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\analytics\analytics.logic.ts:207:  const qaTasks = input.tasks.filter((t) => qaEmployees.has(t.ownerEmployeeId));
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\analytics\analytics.logic.ts:388:      return input.tasks.filter((t) => t.ownerEmployeeId === input.dimensionId);
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\analytics\analytics.logic.ts:397:      return input.tasks.filter((t) => ids.has(t.ownerEmployeeId));
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:2: * Sprint 1 Part 4 ??CEO addressee routing, invite selection, participant integrity.
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:12:function suggestedPeersForOwner(ownerEmployeeId: string): string[] {
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:23:  return (map[ownerEmployeeId] ?? []).filter((id) => id !== ownerEmployeeId);
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:31:/** Detect an employee the CEO is explicitly addressing / assigning to lead. */
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:32:export function resolveExplicitCeoAddressee(message: string): string | null {
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:70:  currentOwnerEmployeeId: string
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:72:  const addressee = resolveExplicitCeoAddressee(message);
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:73:  return Boolean(addressee && addressee !== currentOwnerEmployeeId);
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:97:  ownerEmployeeId: string;
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:116:    if (id === input.ownerEmployeeId) return;
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:123:    if (emp.id === input.ownerEmployeeId) continue;
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:131:      // "Ask Alex to review" is ownership, not peer invite ??skip if addressee
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:132:      const addressee = resolveExplicitCeoAddressee(input.ceoMessage);
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:133:      if (addressee === emp.id) continue;
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:159:    for (const id of suggestedPeersForOwner(input.ownerEmployeeId)) {
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:166:    for (const id of suggestedPeersForOwner(input.ownerEmployeeId)) {
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:174:    .filter((id) => id !== input.ownerEmployeeId)
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:211:  ownerEmployeeId: string
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:215:      String(t.employeeId) !== ownerEmployeeId && isVisibleDomainContributionTurn(t)
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:225:  ownerEmployeeId: string
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:231:    if (!getEmployeeDefinition(id) && id !== ownerEmployeeId) return;
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:235:  push(ownerEmployeeId);
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:238:    if (String(turn.employeeId) === ownerEmployeeId) continue;
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:248:        (id === ownerEmployeeId || isVisibleDomainContributionTurn(t))
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:261:  ownerEmployeeId: string;
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:265:    input.ownerEmployeeId
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:270:  if (!actual.includes(input.ownerEmployeeId)) {
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:273:  if (actual.filter((id) => id === input.ownerEmployeeId).length > 1) {
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:306:  ownerEmployeeId: string;
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo-discussion-orchestration.logic.ts:311:  const emp = getEmployeeDefinition(input.ownerEmployeeId);
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo\types.ts:52:  ownerEmployeeId: string | null;
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\company-learning\company-learning.service.ts:283:    // Owners inferred from source work item refs are not stored; use knowledge bodies mentioning employees weakly.
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\company-learning\company-learning.logic.ts:115:    pushUnique(engineeringImprovements, `Address review theme: ${note}`);
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\company-learning\company-learning.logic.ts:388:      recommendation: `Adjust planning to address repeated CEO rejection theme: ${label}`,
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:23:  ownerEmployeeId: string;
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:29:  ownerEmployeeId: string;
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:82:  ownerEmployeeId: string
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:84:  if (!getEmployeeDefinition(ownerEmployeeId)) {
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:88:    ownerEmployeeId,
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:111:  ownerEmployeeId: string;
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:122:  const ownership = createConversationOwnership(input.ownerEmployeeId);
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:123:  const owner = participantMeta(input.ownerEmployeeId);
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:124:  const parts = buildOwnerOpeningParts(input.ownerEmployeeId, {
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:132:      id: `${input.conversationKey}-owner-${input.ownerEmployeeId}`,
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:133:      employeeId: input.ownerEmployeeId,
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:143:    .filter((id) => id !== input.ownerEmployeeId && Boolean(getEmployeeDefinition(id)))
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:149:    participants: [input.ownerEmployeeId],
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:159:  ownerEmployeeId: string;
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:169:  const ownerId = input.ownerEmployeeId;
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:215:    ownerEmployeeId: ownerId,
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:235:  if (input.invitedByEmployeeId !== input.ownership.ownerEmployeeId) {
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:238:  if (input.inviteeEmployeeId === input.ownership.ownerEmployeeId) {
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:249:  const owner = participantMeta(input.ownership.ownerEmployeeId);
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:254:      ownerEmployeeId: input.ownership.ownerEmployeeId,
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:282:  const isOwner = input.employeeId === input.ownership.ownerEmployeeId;
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:350:  const owner = participantMeta(input.ownership.ownerEmployeeId);
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:352:    ownerEmployeeId: input.ownership.ownerEmployeeId,
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:369:      employeeId: input.ownership.ownerEmployeeId,
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:382:export function suggestedCollaboratorsForOwner(ownerEmployeeId: string): string[] {
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:393:  return (map[ownerEmployeeId] ?? []).filter((id) => id !== ownerEmployeeId);
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:401:  newOwnerEmployeeId: string;
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:403:  if (!getEmployeeDefinition(input.newOwnerEmployeeId)) {
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:407:    ownerEmployeeId: input.newOwnerEmployeeId,
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\conversation-routing.logic.ts:409:      (id) => id !== input.newOwnerEmployeeId
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\company.service.ts:85:  ownerEmployeeId: string | null;
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\company.service.ts:564:      ownerEmployeeId: def.id,
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\company.service.ts:574:        ownerEmployeeId: def.id,
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\company.service.ts:582:        ownerEmployeeId: def.id,
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo\dashboard-panels.ts:56:      subtitle: `${employeeName(t.ownerEmployeeId)} ? ${t.status.replace(/_/g, " ")}`,
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo\dashboard-panels.ts:60:        ownerEmployeeId: t.ownerEmployeeId,
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo\dashboard-panels.ts:80:        `${employeeName(t.ownerEmployeeId)} ? ${t.status.replace(/_/g, " ")}`,
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\ceo\dashboard-panels.ts:84:        ownerEmployeeId: t.ownerEmployeeId,
+C:\Users\jaw88\.cursor\projects\empty-window\ai-company\src\services\builder\autonomous-company\types.ts:48:  ownerEmployeeId: string;

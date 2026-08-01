@@ -44,6 +44,8 @@ import {
   maybeClarificationReply,
   runAutonomousCompanyCycle,
 } from "./autonomous-company";
+import { resolveStrictMessageRoute } from "./employee-message-routing.logic";
+import { recordCompanyTimelineEvent } from "./company-timeline";
 
 export type HqChatThreadView = {
   employeeId: string;
@@ -350,6 +352,8 @@ export function sendHqChatMessage(input: {
   workspaceId?: string;
   repoRoot?: string;
   now?: string;
+  /** Internal: prevent recursive redirect loops. */
+  _routedOnce?: boolean;
 }): SendHqChatResult {
   const root = path.resolve(input.repoRoot ?? process.cwd());
   const workspaceId = input.workspaceId ?? DEFAULT_WORKSPACE_ID;
@@ -371,6 +375,35 @@ export function sendHqChatMessage(input: {
       code: "EMPTY_MESSAGE",
       message: "Message cannot be empty",
       status: 400,
+    };
+  }
+
+  // Strict routing: if CEO addresses another employee by name, only they may answer.
+  const route = resolveStrictMessageRoute({
+    ceoMessage: text,
+    currentOwnerEmployeeId: employeeId,
+    currentLeadEmployeeId: employeeId,
+  });
+  if (
+    !input._routedOnce &&
+    route.addressedEmployeeId &&
+    route.addressedEmployeeId !== employeeId
+  ) {
+    return sendHqChatMessage({
+      ...input,
+      employeeId: route.addressedEmployeeId,
+      _routedOnce: true,
+    });
+  }
+  if (
+    route.addressedEmployeeId &&
+    route.addressedEmployeeId !== employeeId
+  ) {
+    return {
+      ok: false,
+      code: "STRICT_ROUTING",
+      message: `Only ${route.ownerEmployeeId} may respond to this message`,
+      status: 409,
     };
   }
 
@@ -442,6 +475,23 @@ export function sendHqChatMessage(input: {
     repoRoot: root,
     workspaceId,
   });
+
+  try {
+    recordCompanyTimelineEvent({
+      kind: "discussion",
+      summary: `CEO ↔ ${getEmployeeDefinition(employeeId)?.name ?? employeeId} chat`,
+      employeeId,
+      actorName: "CEO",
+      actorRole: "owner",
+      relatedType: "chat",
+      relatedId: ceoMessage.id,
+      repoRoot: root,
+      workspaceId,
+      at: now,
+    });
+  } catch {
+    /* timeline optional */
+  }
 
   const rec = relatedRecommendationFor(employeeId, workspaceId, root);
   const lastProactive = [...thread.messages, ceoMessage, employeeMessage]

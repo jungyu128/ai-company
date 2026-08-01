@@ -150,5 +150,10 @@ export async function POST(request: Request) {
       { status: result.status }
     );
   }
-  return NextResponse.json({ ok: true, memory: result.memory });
+  return NextResponse.json({
+    ok: true,
+    memory: result.memory,
+    decision: result.decision,
+    dashboard: result.dashboard,
+  });
 }

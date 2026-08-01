@@ -62,10 +62,26 @@ export type CompanyMemory = {
   summarizesIds?: string[];
 };
 
+export type MemoryDecisionRecord = {
+  id: string;
+  at: string;
+  memoryId: string;
+  action: "accept" | "ignore" | "remove";
+  title: string;
+  insight: string;
+  kind: MemoryKind;
+  actorUserId: string | null;
+  actorName: string | null;
+  previousStatus: MemoryCeoStatus;
+  nextStatus: MemoryCeoStatus;
+};
+
 export type MemoryStoreShape = {
   memories: CompanyMemory[];
   lastLearnedAt: string | null;
   lastWorkdayId: string | null;
+  /** Append-only CEO insight decision history (never rewritten). */
+  decisionHistory: MemoryDecisionRecord[];
 };
 
 export type LearningInsightSummary = {

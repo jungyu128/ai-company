@@ -1,0 +1,12 @@
+autonomous-company.service.ts
+autonomous-company.store.ts
+autonomy.logic.ts
+dev-ownership.logic.ts
+employee-role.logic.ts
+index.ts
+mission-execution-context.logic.ts
+mission-scope.logic.ts
+peer-discussion.logic.ts
+repo-monitor.logic.ts
+types.ts
+work-items.logic.ts

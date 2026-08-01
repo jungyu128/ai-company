@@ -13,14 +13,16 @@ function suggestedPeersForOwner(ownerEmployeeId: string): string[] {
   const map: Record<string, string[]> = {
     sarah: ["david", "emma"],
     emma: ["sarah"],
-    alex: ["mia", "sarah"],
+    alex: ["emma", "sarah"],
     david: ["emma", "sarah"],
-    mia: ["alex", "david"],
-    noah: ["sarah", "emma"],
-    olivia: ["david"],
-    ethan: ["emma"],
+    noah: ["sarah", "olivia"],
+    olivia: ["david", "emma"],
+    daniel: ["sophia", "emma"],
+    sophia: ["olivia", "sarah"],
   };
-  return (map[ownerEmployeeId] ?? []).filter((id) => id !== ownerEmployeeId);
+  return (map[ownerEmployeeId] ?? []).filter(
+    (id) => id !== ownerEmployeeId && Boolean(getEmployeeDefinition(id))
+  );
 }
 const SYSTEM_ACTOR = {
   employeeId: "system",
@@ -35,8 +37,22 @@ export function resolveExplicitCeoAddressee(message: string): string | null {
 
   for (const emp of AI_COMPANY_EMPLOYEES) {
     const name = escapeRegExp(emp.name);
-    // "Alex, …" / "Alex: …" at message start
-    if (new RegExp(`^${name}\\s*[,:]\\s+`, "i").test(text)) {
+    // "@Alex …" anywhere as a directed mention at line start
+    if (new RegExp(`^@${name}\\b`, "i").test(text)) {
+      return emp.id;
+    }
+    // "Alex, …" / "Alex: …" / "Alex — …" / "Alex - …" at message start
+    if (new RegExp(`^${name}\\s*[,:—–-]\\s+`, "i").test(text)) {
+      return emp.id;
+    }
+    // "Hey/Hi/Hello Alex, …"
+    if (
+      new RegExp(`^(?:hey|hi|hello)\\s+${name}\\s*[,:]\\s+`, "i").test(text)
+    ) {
+      return emp.id;
+    }
+    // "Alex please …"
+    if (new RegExp(`^${name}\\s+please\\b`, "i").test(text)) {
       return emp.id;
     }
   }

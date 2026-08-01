@@ -20,7 +20,10 @@ export type CompanyTimelineEventKind =
   | "planning"
   | "discussion"
   | "execution"
-  | "deployment_ready";
+  | "deployment_ready"
+  | "insight_accepted"
+  | "insight_ignored"
+  | "insight_removed";
 
 export type CompanyTimelineEvent = {
   id: string;
@@ -68,4 +71,7 @@ export const COMPANY_TIMELINE_LABELS: Record<CompanyTimelineEventKind, string> =
   discussion: "Discussion",
   execution: "Execution",
   deployment_ready: "Deployment Ready",
+  insight_accepted: "Insight accepted",
+  insight_ignored: "Insight ignored",
+  insight_removed: "Insight removed",
 };

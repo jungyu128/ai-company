@@ -1,0 +1,30 @@
+﻿mission.service.ts:478:const leadEmployeeId =
+mission.service.ts:484:leadEmployeeId,
+mission.service.ts:494:employeeId: leadEmployeeId,
+mission.service.ts:544:* Idempotent — skips any artifact that already mentions the task id.
+orchestrator.logic.ts:21:ownerEmployeeId: string;
+orchestrator.logic.ts:51:ownerEmployeeId: string;
+orchestrator.logic.ts:87:ownerEmployeeId: m.leadEmployeeId,
+orchestrator.logic.ts:96:ownerEmployeeId: m.leadEmployeeId,
+orchestrator.logic.ts:107:ownerEmployeeId: m.leadEmployeeId,
+orchestrator.logic.ts:153:leadEmployeeId: unique[0] ?? mission.leadEmployeeId,
+orchestrator.logic.ts:163:leadEmployeeId: rebuilt.leadEmployeeId,
+orchestrator.logic.ts:178:const from = m.leadEmployeeId;
+orchestrator.logic.ts:240:fromEmployeeId: b.ownerEmployeeId,
+orchestrator.logic.ts:243:? `${getEmployeeDefinition(b.ownerEmployeeId)?.name ?? "Employee"} escalated “${b.title}” — CEO input required.`
+orchestrator.logic.ts:244:: `${getEmployeeDefinition(b.ownerEmployeeId)?.name ?? "Employee"} requested help on blocked work.`,
+orchestrator.logic.ts:273:const from = mission.leadEmployeeId;
+orchestrator.logic.ts:278:leadEmployeeId: toEmployeeId,
+orchestrator.logic.ts:300:leadEmployeeId: toEmployeeId,
+orchestrator.logic.ts:323:const leadA = firstIds[0] ?? mission.leadEmployeeId;
+orchestrator.logic.ts:324:const leadB = secondIds[0] ?? mission.leadEmployeeId;
+orchestrator.logic.ts:330:leadEmployeeId: leadA,
+orchestrator.logic.ts:339:leadEmployeeId: leadB,
+orchestrator.logic.ts:352:fromEmployeeId: mission.leadEmployeeId,
+orchestrator.logic.ts:397:ownerEmployeeId: p.recommendedOwnerId,
+orchestrator.logic.ts:421:employeeId: b.ownerEmployeeId,
+orchestrator.logic.ts:422:name: getEmployeeDefinition(b.ownerEmployeeId)?.name ?? b.ownerEmployeeId,
+company.service.ts:85:ownerEmployeeId: string | null;
+company.service.ts:564:ownerEmployeeId: def.id,
+company.service.ts:574:ownerEmployeeId: def.id,
+company.service.ts:582:ownerEmployeeId: def.id,

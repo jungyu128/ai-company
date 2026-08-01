@@ -1,0 +1,40 @@
+﻿live-work.logic.ts:55:employeeId: string;
+live-work.logic.ts:60:if (!m.participantIds.includes(input.employeeId)) return false;
+live-work.logic.ts:154:employeeId: live.employeeId,
+live-work.logic.ts:174:employeeId: string,
+live-work.logic.ts:180:employeeId,
+live-work.logic.ts:206:const prev = new Map(previousFingerprints.map((p) => [p.employeeId, p]));
+live-work.logic.ts:210:liveStates.find((s) => s.employeeId === emp.id) ??
+live-work.logic.ts:222:const p = prev.get(e.employeeId);
+live-work.logic.ts:231:employeeId: e.employeeId,
+live-work.logic.ts:266:employeeId: e.employeeId,
+live-work.service.ts:54:const occ = meetingOccupancy({ meetings, employeeId: base.employeeId });
+live-work.service.ts:121:relatedId: change.employeeId,
+live-work.service.ts:130:employeeId: change.employeeId,
+live-work.service.ts:180:employeeId: string;
+live-work.service.ts:189:return snap.employees.find((e) => e.employeeId === input.employeeId) ?? null;
+types.ts:6:employeeId: string;
+types.ts:25:employeeId: string;
+types.ts:50:employeeId: string;
+company-timeline.client.ts:41:employeeId: string | null;
+company-timeline.service.ts:69:employeeId?: string | null;
+company-timeline.service.ts:95:employeeId: input.employeeId ?? null,
+company-timeline.service.ts:151:employeeId: string;
+company-timeline.service.ts:165:employeeId: input.employeeId,
+continuous-os.service.ts:81:relatedId: decision.taskId ?? decision.employeeId ?? decision.id,
+continuous-os.service.ts:246:const def = getEmployeeDefinition(emp.employeeId);
+continuous-os.service.ts:256:ownerEmployeeId: emp.employeeId,
+continuous-os.service.ts:271:actorId: emp.employeeId,
+continuous-os.service.ts:275:employeeId: emp.employeeId,
+continuous-os.service.ts:286:ownerEmployeeId: emp.employeeId,
+continuous-os.service.ts:297:actorId: emp.employeeId,
+continuous-os.service.ts:301:employeeId: emp.employeeId,
+continuous-os.service.ts:310:const list = byOwner.get(task.ownerEmployeeId) ?? [];
+continuous-os.service.ts:312:byOwner.set(task.ownerEmployeeId, list);
+continuous-os.service.ts:318:const owned = byOwner.get(emp.employeeId) ?? [];
+continuous-os.service.ts:336:actorId: emp.employeeId,
+continuous-os.service.ts:340:employeeId: emp.employeeId,
+continuous-os.service.ts:354:toEmployeeId: task.collaboratorIds[0],
+continuous-os.service.ts:364:actorId: emp.employeeId,
+continuous-os.service.ts:366:summary: `${emp.employeeName} delegated ${task.id} to ${delegated.ownerEmployeeId}`,
+continuous-os.service.ts:368:employeeId: emp.employeeId,

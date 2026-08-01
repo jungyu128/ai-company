@@ -1,0 +1,19 @@
+﻿hq-chat.service.ts:33:listUnreadProactiveEmployeeIds,
+hq-chat.service.ts:66:(r.conversationOwnerId === employeeId ||
+hq-chat.service.ts:182:ownershipSummary: dev.ownership
+hq-chat.service.ts:183:? `${dev.ownership.disciplines.join(", ")} — ${dev.ownership.owns.slice(0, 3).join("; ")}`
+hq-chat.service.ts:193:...(dev.ownership?.owns ?? []).slice(0, 3),
+hq-chat.service.ts:472:return listUnreadProactiveEmployeeIds(root, workspaceId);
+hq-chat.logic.ts:8:buildOwnerOpeningParts,
+hq-chat.logic.ts:71:/** Development discipline ownership summary. */
+hq-chat.logic.ts:72:ownershipSummary?: string | null;
+hq-chat.logic.ts:189:const parts = buildOwnerOpeningParts(ctx.employeeId, {
+hq-chat.logic.ts:211:if (ctx.ownershipSummary) {
+hq-chat.logic.ts:212:contextLines.push(`Ownership: ${truncate(ctx.ownershipSummary, 140)}`);
+hq-chat.test.ts:6:import assert from "node:assert/strict";
+hq-chat.test.ts:15:} from "@/services/builder/hq-chat.logic";
+hq-chat.test.ts:19:} from "@/services/builder/hq-chat.store";
+hq-chat.test.ts:25:} from "@/services/builder/hq-chat.service";
+hq-chat.test.ts:26:import { saveProactiveScan } from "@/services/builder/proactive.store";
+hq-chat.test.ts:27:import type { EmployeeRecommendation } from "@/services/builder/proactive.logic";
+hq-chat.test.ts:163:conversationOwnerId: "emma",

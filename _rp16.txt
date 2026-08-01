@@ -1,0 +1,17 @@
+﻿108:conversationOwnerId?: string;
+340:mission.leadEmployeeId === "sarah" &&
+600:conversationOwnerId: cluster.leadEmployeeId,
+679:conversationOwnerId: rec.conversationOwnerId,
+686:conversationOwnerId: ownerId,
+704:conversationOwnerId: next.conversationOwnerId,
+725:const addressed = resolveExplicitCeoAddressee(ceoMessage);
+726:if (addressed && isExplicitCeoReassignment(ceoMessage, ownerId)) {
+733:newOwnerEmployeeId: addressed,
+736:next.conversationOwnerId = ownerId;
+749:next.conversationOwnerId = ownerId;
+903:next.leadEmployeeId = targetId;
+912:next.conversationOwnerId = transferred.ownerEmployeeId;
+961:conversationOwnerId: rec.conversationOwnerId,
+996:conversationOwnerId: invited.ownership.ownerEmployeeId,
+1016:conversationOwnerId: rec.conversationOwnerId,
+1035:conversationOwnerId: ownerId,

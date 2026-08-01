@@ -62,7 +62,7 @@ describe("Part 4 — explicit CEO addressee routing", () => {
     });
 
     assert.equal(asked.conversationOwnerId, "alex");
-    assert.equal(asked.leadEmployeeId, "sarah"); // backward-compatible lead preserved
+    assert.equal(asked.leadEmployeeId, "alex"); // addressed employee becomes mission owner
 
     const ceoIdx = asked.internalDiscussion.findIndex(
       (t) => t.employeeId === "ceo" && /Alex,/i.test(t.body)

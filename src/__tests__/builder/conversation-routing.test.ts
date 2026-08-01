@@ -78,7 +78,7 @@ describe("conversation ownership and routing", () => {
     });
     assert.ok(contrib);
     assert.equal(contrib!.employeeId, "david");
-    assert.match(contrib!.body, /document|brief|proposal|report|pack/i);
+    assert.match(contrib!.body, /api|data|backend|contract|regress|implement|plan|work/i);
     assert.ok(contrib!.body.split(/(?<=[.!?])\s+/).filter(Boolean).length <= 3);
 
     assert.throws(() =>
@@ -143,9 +143,9 @@ describe("conversation ownership and routing", () => {
     );
     const transferred = transferConversationOwner({
       ownership,
-      newOwnerEmployeeId: "mia",
+      newOwnerEmployeeId: "olivia",
     });
-    assert.equal(transferred.ownerEmployeeId, "mia");
+    assert.equal(transferred.ownerEmployeeId, "olivia");
     assert.equal(ownership.ownerEmployeeId, "alex");
   });
 

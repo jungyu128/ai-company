@@ -24,10 +24,20 @@ import {
   learnFromCompletedWorkday,
   resetCompanyMemory,
 } from "@/services/builder/memory/memory.service";
-import { listMemories, upsertMemory } from "@/services/builder/memory/memory.store";
+import {
+  listAllMemoriesIncludingRemoved,
+  listMemories,
+  listMemoryDecisions,
+  upsertMemory,
+} from "@/services/builder/memory/memory.store";
 import type { CompanyMemory } from "@/services/builder/memory/types";
 import type { AutonomousWorkday } from "@/services/builder/workday/types";
 import type { EmployeeRecommendation } from "@/services/builder/proactive.logic";
+import { getCompanyTimeline } from "@/services/builder/company-timeline";
+import { listKnowledge } from "@/services/builder/company-learning";
+import { listAudit } from "@/services/builder/workspace/collaboration-feed";
+import { listAnalyticsSamples } from "@/services/builder/analytics/analytics.store";
+import { applyInsightActionOptimistic } from "@/features/builder/lib/company-memory-insight-actions";
 
 function mission(id: string, title: string, lead: string, text: string) {
   return planCollaborationChain({
@@ -325,24 +335,31 @@ describe("company memory v7", () => {
       memoryId: mem.id,
       action: "accept",
       repoRoot: tmp,
+      actor: { userId: "ceo-1", displayName: "CEO", role: "owner" },
     });
     assert.equal(accepted.ok, true);
     if (!accepted.ok) return;
     assert.equal(accepted.memory.ceoStatus, "accepted");
+    assert.equal(accepted.dashboard.newInsights.length, 0);
+    assert.ok(accepted.dashboard.learnedPreferences.some((m) => m.id === mem.id));
+    assert.equal(accepted.decision.action, "accept");
 
     const ignored = decideMemory({
       memoryId: mem.id,
       action: "ignore",
       repoRoot: tmp,
+      actor: { userId: "ceo-1", displayName: "CEO", role: "owner" },
     });
     assert.equal(ignored.ok, true);
     if (!ignored.ok) return;
     assert.equal(ignored.memory.ceoStatus, "ignored");
+    assert.equal(ignored.dashboard.newInsights.length, 0);
 
     const removed = decideMemory({
       memoryId: mem.id,
       action: "remove",
       repoRoot: tmp,
+      actor: { userId: "ceo-1", displayName: "CEO", role: "owner" },
     });
     assert.equal(removed.ok, true);
     if (!removed.ok) return;
@@ -458,5 +475,226 @@ describe("company memory v7", () => {
     assert.ok(dash.newInsights.length >= 1);
     const blob = JSON.stringify(dash);
     assert.doesNotMatch(blob, /Builder Runtime|orchestrator|docs\/ai-team/i);
+  });
+
+  it("accept feeds learning, timeline, audit, and decision history", () => {
+    const mem: CompanyMemory = {
+      id: "mem-side-accept",
+      kind: "successful_pattern",
+      title: "Ship with preview notes",
+      insight: "Include concise CEO preview",
+      confidence: 62,
+      evidenceCount: 2,
+      sourceRefs: ["mission:side-a"],
+      expiration: { softExpireDays: 30, hardExpireDays: 90 },
+      ceoStatus: "pending",
+      patternKey: "success:preview",
+      createdAt: "2026-07-29T01:00:00.000Z",
+      lastUpdated: "2026-07-29T01:00:00.000Z",
+      acceptedAt: null,
+      ignoredAt: null,
+    };
+    upsertMemory(mem, tmp);
+
+    const result = decideMemory({
+      memoryId: mem.id,
+      action: "accept",
+      repoRoot: tmp,
+      now: "2026-07-29T12:00:00.000Z",
+      actor: { userId: "ceo-1", displayName: "CEO", role: "owner" },
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+
+    assert.equal(result.memory.ceoStatus, "accepted");
+    assert.equal(result.dashboard.newInsights.some((m) => m.id === mem.id), false);
+    assert.ok(result.dashboard.learnedPreferences.some((m) => m.id === mem.id));
+
+    const decisions = listMemoryDecisions(tmp);
+    assert.ok(decisions.some((d) => d.memoryId === mem.id && d.action === "accept"));
+
+    const timeline = getCompanyTimeline({ repoRoot: tmp, limit: 40 });
+    assert.ok(
+      timeline.events.some(
+        (e) => e.kind === "insight_accepted" && e.relatedId === mem.id
+      )
+    );
+
+    const knowledge = listKnowledge(tmp);
+    assert.ok(
+      knowledge.some(
+        (k) =>
+          k.title === mem.title &&
+          k.sourceRefs.some((r) => r === `memory:${mem.id}`)
+      )
+    );
+
+    const audit = listAudit("default", tmp, 40);
+    assert.ok(audit.some((a) => a.action === "memory.accept" && a.targetId === mem.id));
+
+    // Idempotent re-accept does not invent a second knowledge row for same transition
+    const again = decideMemory({
+      memoryId: mem.id,
+      action: "accept",
+      repoRoot: tmp,
+      actor: { userId: "ceo-1", displayName: "CEO", role: "owner" },
+    });
+    assert.equal(again.ok, true);
+    if (!again.ok) return;
+    assert.equal(again.memory.ceoStatus, "accepted");
+    assert.equal(again.decision.previousStatus, "accepted");
+    assert.equal(again.decision.nextStatus, "accepted");
+  });
+
+  it("ignore records analytics sample and audit without learning knowledge", () => {
+    const mem: CompanyMemory = {
+      id: "mem-side-ignore",
+      kind: "business_priority",
+      title: "Deprioritize noise alert",
+      insight: "Ignore low-signal CRM noise",
+      confidence: 55,
+      evidenceCount: 1,
+      sourceRefs: ["mission:side-b"],
+      expiration: { softExpireDays: 30, hardExpireDays: 90 },
+      ceoStatus: "pending",
+      patternKey: "priority:noise",
+      createdAt: "2026-07-29T01:00:00.000Z",
+      lastUpdated: "2026-07-29T01:00:00.000Z",
+      acceptedAt: null,
+      ignoredAt: null,
+    };
+    upsertMemory(mem, tmp);
+    const knowledgeBefore = listKnowledge(tmp).length;
+
+    const result = decideMemory({
+      memoryId: mem.id,
+      action: "ignore",
+      repoRoot: tmp,
+      now: "2026-07-29T13:00:00.000Z",
+      actor: { userId: "ceo-1", displayName: "CEO", role: "owner" },
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.memory.ceoStatus, "ignored");
+    assert.equal(result.dashboard.newInsights.some((m) => m.id === mem.id), false);
+    assert.ok(result.memory.ignoredAt);
+
+    const timeline = getCompanyTimeline({ repoRoot: tmp, limit: 40 });
+    assert.ok(
+      timeline.events.some(
+        (e) => e.kind === "insight_ignored" && e.relatedId === mem.id
+      )
+    );
+
+    const audit = listAudit("default", tmp, 40);
+    assert.ok(audit.some((a) => a.action === "memory.ignore" && a.targetId === mem.id));
+
+    const samples = listAnalyticsSamples(tmp, "default", 20);
+    assert.ok(samples.some((s) => s.id.includes(result.decision.id)));
+
+    assert.equal(listKnowledge(tmp).length, knowledgeBefore);
+    assert.ok(
+      listMemoryDecisions(tmp).some((d) => d.memoryId === mem.id && d.action === "ignore")
+    );
+  });
+
+  it("remove permanently deletes insight and refreshes derived dashboard", () => {
+    const mem: CompanyMemory = {
+      id: "mem-side-remove",
+      kind: "failure_pattern",
+      title: "Stale insight to drop",
+      insight: "No longer relevant",
+      confidence: 40,
+      evidenceCount: 1,
+      sourceRefs: ["mission:side-c"],
+      expiration: { softExpireDays: 30, hardExpireDays: 90 },
+      ceoStatus: "pending",
+      patternKey: "fail:stale",
+      createdAt: "2026-07-29T01:00:00.000Z",
+      lastUpdated: "2026-07-29T01:00:00.000Z",
+      acceptedAt: null,
+      ignoredAt: null,
+    };
+    upsertMemory(mem, tmp);
+
+    const result = decideMemory({
+      memoryId: mem.id,
+      action: "remove",
+      repoRoot: tmp,
+      now: "2026-07-29T14:00:00.000Z",
+      actor: { userId: "ceo-1", displayName: "CEO", role: "owner" },
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.memory.ceoStatus, "removed");
+    assert.equal(listMemories(tmp).some((m) => m.id === mem.id), false);
+    assert.equal(
+      listAllMemoriesIncludingRemoved(tmp).some((m) => m.id === mem.id),
+      false
+    );
+    assert.equal(result.dashboard.newInsights.some((m) => m.id === mem.id), false);
+    assert.equal(
+      result.dashboard.recentlyUpdated.some((m) => m.id === mem.id),
+      false
+    );
+
+    const timeline = getCompanyTimeline({ repoRoot: tmp, limit: 40 });
+    assert.ok(
+      timeline.events.some(
+        (e) => e.kind === "insight_removed" && e.relatedId === mem.id
+      )
+    );
+    assert.ok(
+      listMemoryDecisions(tmp).some((d) => d.memoryId === mem.id && d.action === "remove")
+    );
+    assert.ok(
+      listAudit("default", tmp, 40).some(
+        (a) => a.action === "memory.remove" && a.targetId === mem.id
+      )
+    );
+
+    const missing = decideMemory({
+      memoryId: mem.id,
+      action: "remove",
+      repoRoot: tmp,
+    });
+    assert.equal(missing.ok, false);
+  });
+
+  it("optimistic insight transitions remove from Pending correctly", () => {
+    const pending: CompanyMemory = {
+      id: "mem-opt",
+      kind: "ceo_preference",
+      title: "Prefer short briefs",
+      insight: "Keep briefs under 5 bullets",
+      confidence: 70,
+      evidenceCount: 2,
+      sourceRefs: ["mission:opt"],
+      expiration: { softExpireDays: 30, hardExpireDays: 90 },
+      ceoStatus: "pending",
+      patternKey: "ceo:brief",
+      createdAt: "2026-07-29T01:00:00.000Z",
+      lastUpdated: "2026-07-29T01:00:00.000Z",
+      acceptedAt: null,
+      ignoredAt: null,
+    };
+    const snap = {
+      newInsights: [pending],
+      learnedPreferences: [] as CompanyMemory[],
+      recentlyUpdated: [pending],
+    };
+
+    const accepted = applyInsightActionOptimistic(snap, pending.id, "accept");
+    assert.equal(accepted.newInsights.length, 0);
+    assert.equal(accepted.learnedPreferences[0]?.ceoStatus, "accepted");
+
+    const ignored = applyInsightActionOptimistic(snap, pending.id, "ignore");
+    assert.equal(ignored.newInsights.length, 0);
+    assert.equal(ignored.recentlyUpdated[0]?.ceoStatus, "ignored");
+
+    const removed = applyInsightActionOptimistic(snap, pending.id, "remove");
+    assert.equal(removed.newInsights.length, 0);
+    assert.equal(removed.recentlyUpdated.length, 0);
+    assert.equal(removed.learnedPreferences.length, 0);
   });
 });

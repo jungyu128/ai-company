@@ -4,7 +4,11 @@
  */
 
 import path from "node:path";
-import type { CompanyMemory, MemoryStoreShape } from "./types";
+import type {
+  CompanyMemory,
+  MemoryDecisionRecord,
+  MemoryStoreShape,
+} from "./types";
 import { opsRel } from "../workspace/paths";
 import { DEFAULT_WORKSPACE_ID } from "../workspace/types";
 import { readJson, writeJson } from "../storage";
@@ -13,7 +17,12 @@ export const MEMORY_FILE = "ai-company-memory.json";
 export const MEMORY_REL = opsRel(MEMORY_FILE, DEFAULT_WORKSPACE_ID);
 
 function emptyStore(): MemoryStoreShape {
-  return { memories: [], lastLearnedAt: null, lastWorkdayId: null };
+  return {
+    memories: [],
+    lastLearnedAt: null,
+    lastWorkdayId: null,
+    decisionHistory: [],
+  };
 }
 
 function fileFor(workspaceId: string) {
@@ -27,11 +36,19 @@ function readStore(root: string, workspaceId: string): MemoryStoreShape {
     memories: parsed.memories,
     lastLearnedAt: parsed.lastLearnedAt ?? null,
     lastWorkdayId: parsed.lastWorkdayId ?? null,
+    decisionHistory: Array.isArray(parsed.decisionHistory)
+      ? parsed.decisionHistory
+      : [],
   };
 }
 
 function writeStore(root: string, workspaceId: string, store: MemoryStoreShape) {
-  writeJson(root, fileFor(workspaceId), store);
+  writeJson(root, fileFor(workspaceId), {
+    memories: store.memories,
+    lastLearnedAt: store.lastLearnedAt,
+    lastWorkdayId: store.lastWorkdayId,
+    decisionHistory: store.decisionHistory.slice(0, 500),
+  });
 }
 
 export function listMemories(
@@ -79,6 +96,44 @@ export function upsertMemory(
   store.memories = store.memories.slice(0, 400);
   writeStore(root, workspaceId, store);
   return store.memories.find((m) => m.patternKey === memory.patternKey) ?? memory;
+}
+
+/** Permanently drop an insight from the active memory list (decision history retained). */
+export function deleteMemory(
+  memoryId: string,
+  repoRoot = process.cwd(),
+  workspaceId = DEFAULT_WORKSPACE_ID
+): boolean {
+  const root = path.resolve(repoRoot);
+  const store = readStore(root, workspaceId);
+  const next = store.memories.filter((m) => m.id !== memoryId);
+  if (next.length === store.memories.length) return false;
+  store.memories = next;
+  writeStore(root, workspaceId, store);
+  return true;
+}
+
+export function appendMemoryDecision(
+  decision: MemoryDecisionRecord,
+  repoRoot = process.cwd(),
+  workspaceId = DEFAULT_WORKSPACE_ID
+): MemoryDecisionRecord {
+  const root = path.resolve(repoRoot);
+  const store = readStore(root, workspaceId);
+  store.decisionHistory = [decision, ...store.decisionHistory].slice(0, 500);
+  writeStore(root, workspaceId, store);
+  return decision;
+}
+
+export function listMemoryDecisions(
+  repoRoot = process.cwd(),
+  workspaceId = DEFAULT_WORKSPACE_ID,
+  limit = 80
+): MemoryDecisionRecord[] {
+  return readStore(path.resolve(repoRoot), workspaceId).decisionHistory.slice(
+    0,
+    limit
+  );
 }
 
 export function replaceMemories(
