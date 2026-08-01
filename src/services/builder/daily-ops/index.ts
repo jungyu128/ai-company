@@ -34,6 +34,7 @@ export {
   applyWorkItemStatus,
   dependenciesSatisfied,
   workSummaryCounts,
+  normalizeDailyWorkItem,
   buildMorningPlanReport,
   buildProgressReport,
   buildApprovalRequestReport,

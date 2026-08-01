@@ -23,6 +23,7 @@ import { listActiveWorkpilotMissions } from "../autonomous-company/mission-scope
 import { linkFromMission } from "../autonomous-company/work-items.logic";
 import { listCollaborations } from "../collaboration.store";
 import { autoCreateNeededMeetings, resolveMeetingLifecycles } from "../meetings";
+import { runOperatingSystemV2Cycle } from "../operating-system-v2";
 import { runCalendarMaintenance } from "../calendar";
 import { recordCompanyAnalyticsSample } from "../analytics";
 import {
@@ -164,6 +165,18 @@ export function runContinuousOsTick(input?: {
           now,
           deliverToChat: input?.deliverToChat !== false,
         });
+
+  // OS v2 closed loop: advance approved Daily Directive work before filler tasks.
+  try {
+    runOperatingSystemV2Cycle({
+      repoRoot: root,
+      workspaceId,
+      now,
+      syncLiveWork: false,
+    });
+  } catch {
+    /* daily-ops advance is non-blocking for Continuous OS tick */
+  }
 
   // Meetings: recover stale/deadlocked first, then auto-create + discuss
   resolveMeetingLifecycles({
@@ -371,7 +384,13 @@ export function runContinuousOsTick(input?: {
         emp.state === "Blocked" ||
         emp.state === "Completed"
         ? emp.state
-        : "Planning"
+        : "Planning",
+      {
+        pendingCeoApproval: task.status === "awaiting_ceo",
+        interrupted: emp.interrupted,
+        blockedReason: task.blocker,
+        dependencyIncomplete: false,
+      }
     );
     if (next === "Working" || next === "Reviewing" || next === "Waiting") {
       const advanced = advanceTaskForState({ task, nextState: next, now });

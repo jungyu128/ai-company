@@ -145,6 +145,17 @@ export type ExecutiveBrief = {
     assignment: string;
   }>;
   summary: string;
+  /** OS v2 continuous briefing fields (recorded state only). */
+  whatChanged?: string[];
+  currentBlockers?: string[];
+  decisionsNeeded?: string[];
+  employeesWaiting?: Array<{
+    employeeId: string;
+    employeeName: string;
+    waitingFor: string;
+  }>;
+  completedWork?: string[];
+  recommendedNextAction?: string | null;
 };
 
 export type CompanyHealth = {

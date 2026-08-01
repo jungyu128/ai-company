@@ -100,6 +100,20 @@ export type DailyWorkItem = {
   progress: number;
   expectedOutput: string;
   acceptanceCriteria: string[];
+  /** Concrete implementation steps derived at plan time (never invented later). */
+  implementationPlan: string[];
+  /** Modules/areas expected to change — recorded at plan time only. */
+  affectedModules: string[];
+  /** Relative effort label from planning (S / M / L). */
+  estimatedEffort: "S" | "M" | "L";
+  /** Work-item-level risks recorded at plan time. */
+  risks: string[];
+  /** How verification will run — recorded at plan time. */
+  testPlan: string[];
+  /** Primary review owner (permanent employee id). */
+  reviewOwnerId: string;
+  /** Primary QA owner (permanent employee id). */
+  qaOwnerId: string;
   requiredReviewers: string[];
   approvalState: DailyWorkApprovalState;
   executionPermission: ExecutionPermission;

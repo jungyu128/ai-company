@@ -201,6 +201,11 @@ type SliceSpec = {
   expectedOutput: string;
   acceptanceCriteria: string[];
   priority: DailyDirectivePriority;
+  implementationPlan: string[];
+  affectedModules: string[];
+  estimatedEffort: "S" | "M" | "L";
+  risks: string[];
+  testPlan: string[];
 };
 
 function proposeSlices(directive: DailyDirective): SliceSpec[] {
@@ -217,6 +222,18 @@ function proposeSlices(directive: DailyDirective): SliceSpec[] {
         "Acceptance criteria are testable",
       ],
       priority: directive.priority,
+      implementationPlan: [
+        "Interview directive intent and constraints",
+        "Draft success criteria and non-goals",
+        "Publish requirements brief for architecture",
+      ],
+      affectedModules: ["product", "requirements"],
+      estimatedEffort: "S",
+      risks: ["Ambiguous outcome delays architecture"],
+      testPlan: [
+        "CEO confirms intended outcome wording",
+        "Acceptance criteria are independently testable",
+      ],
     },
     {
       title: "Architecture / technical approach",
@@ -228,6 +245,18 @@ function proposeSlices(directive: DailyDirective): SliceSpec[] {
         "No production deploy implied",
       ],
       priority: directive.priority,
+      implementationPlan: [
+        "Map affected modules from requirements",
+        "Choose approach within permanent role boundaries",
+        "List risks, dependencies, and non-goals",
+      ],
+      affectedModules: ["architecture", "builder"],
+      estimatedEffort: "M",
+      risks: ["Hidden coupling across modules", "Protected actions underestimated"],
+      testPlan: [
+        "Architecture note reviewed by CTO/peer",
+        "No deploy/merge implied without CEO gate",
+      ],
     },
     {
       title: "Frontend implementation slice",
@@ -239,6 +268,18 @@ function proposeSlices(directive: DailyDirective): SliceSpec[] {
         "No production deploy",
       ],
       priority: directive.priority,
+      implementationPlan: [
+        "Implement UI against approved architecture",
+        "Wire to existing HQ surfaces only",
+        "Prepare review package (no merge/deploy)",
+      ],
+      affectedModules: ["frontend", "builder/hq"],
+      estimatedEffort: "L",
+      risks: ["UI drift from acceptance criteria", "Code change needs protected approval"],
+      testPlan: [
+        "Visual/interaction check against acceptance criteria",
+        "Regression on CEO Operating Center surfaces",
+      ],
     },
     {
       title: "Backend / API slice",
@@ -250,6 +291,21 @@ function proposeSlices(directive: DailyDirective): SliceSpec[] {
         "Error envelopes clear",
       ],
       priority: directive.priority,
+      implementationPlan: [
+        "Implement service/API contracts from architecture",
+        "Record changed paths only from real execution",
+        "Gate schema/deploy side effects behind protected approval",
+      ],
+      affectedModules: ["services", "api", "builder"],
+      estimatedEffort: "L",
+      risks: [
+        "Schema change without protected approval",
+        "Contract mismatch with frontend",
+      ],
+      testPlan: [
+        "Contract tests for happy/error paths",
+        "No write occurs before CEO grant",
+      ],
     },
     {
       title: "QA verification plan",
@@ -261,6 +317,19 @@ function proposeSlices(directive: DailyDirective): SliceSpec[] {
         "No incomplete work marked complete",
       ],
       priority: directive.priority,
+      implementationPlan: [
+        "Derive cases from acceptance criteria",
+        "Run verification against completed FE/BE slices",
+        "File findings with recorded evidence only",
+      ],
+      affectedModules: ["qa", "regression"],
+      estimatedEffort: "M",
+      risks: ["False complete without evidence", "Missed regression on HQ"],
+      testPlan: [
+        "Full acceptance-criteria matrix",
+        "Regression suite on Operating Center + daily-ops",
+        "Block COMPLETED if findings open",
+      ],
     },
   ];
 }
@@ -287,6 +356,7 @@ export function buildProposedPlan(input: {
     const emp = getEmployeeDefinition(assign.employeeId)!;
     const protectedHint = detectProtectedActionHint(slice.objective);
     const id = newDailyId("dwi");
+    const requiredReviewers = defaultReviewersFor(emp.id);
     workItems.push({
       id,
       directiveId: directive.id,
@@ -303,7 +373,14 @@ export function buildProposedPlan(input: {
       progress: progressForStatus("PROPOSED"),
       expectedOutput: slice.expectedOutput,
       acceptanceCriteria: slice.acceptanceCriteria,
-      requiredReviewers: defaultReviewersFor(emp.id),
+      implementationPlan: slice.implementationPlan,
+      affectedModules: slice.affectedModules,
+      estimatedEffort: slice.estimatedEffort,
+      risks: slice.risks,
+      testPlan: slice.testPlan,
+      reviewOwnerId: reviewOwnerFor(emp.id, requiredReviewers),
+      qaOwnerId: qaOwnerFor(requiredReviewers),
+      requiredReviewers,
       approvalState: "pending",
       executionPermission: "DENIED",
       startedAt: null,
@@ -480,6 +557,63 @@ function defaultReviewersFor(employeeId: string): string[] {
   if (employeeId === "olivia") return ["sophia", "noah"];
   if (employeeId === "emma") return ["daniel"];
   return ["emma"];
+}
+
+function reviewOwnerFor(employeeId: string, reviewers: string[]): string {
+  return reviewers[0] ?? (employeeId === "emma" ? "daniel" : "emma");
+}
+
+function qaOwnerFor(reviewers: string[]): string {
+  if (reviewers.includes("emma")) return "emma";
+  return reviewers.find((id) => id === "daniel") ?? "emma";
+}
+
+/**
+ * Backfill execution-engine fields for legacy recorded work items.
+ * Does not invent progress — only fills missing planning metadata.
+ */
+export function normalizeDailyWorkItem(item: DailyWorkItem): DailyWorkItem {
+  const reviewers =
+    item.requiredReviewers?.length > 0
+      ? item.requiredReviewers
+      : defaultReviewersFor(item.assignedEmployeeId);
+  const implementationPlan = Array.isArray(item.implementationPlan)
+    ? item.implementationPlan
+    : [];
+  const affectedModules = Array.isArray(item.affectedModules)
+    ? item.affectedModules
+    : [];
+  const risks = Array.isArray(item.risks) ? item.risks : [];
+  const testPlan = Array.isArray(item.testPlan) ? item.testPlan : [];
+  return {
+    ...item,
+    requiredReviewers: reviewers,
+    implementationPlan:
+      implementationPlan.length > 0
+        ? implementationPlan
+        : [
+            `Execute objective: ${item.objective}`,
+            `Produce: ${item.expectedOutput}`,
+            "Stop for CEO gates on protected actions",
+          ],
+    affectedModules:
+      affectedModules.length > 0
+        ? affectedModules
+        : [item.permanentRole.toLowerCase().replace(/\s+/g, "_")],
+    estimatedEffort: item.estimatedEffort ?? "M",
+    risks:
+      risks.length > 0
+        ? risks
+        : item.pendingProtectedAction
+          ? [`Protected action pending: ${item.pendingProtectedAction}`]
+          : ["Execution permission denied until CEO grant"],
+    testPlan:
+      testPlan.length > 0
+        ? testPlan
+        : (item.acceptanceCriteria ?? []).map((c) => `Verify: ${c}`),
+    reviewOwnerId: item.reviewOwnerId || reviewOwnerFor(item.assignedEmployeeId, reviewers),
+    qaOwnerId: item.qaOwnerId || qaOwnerFor(reviewers),
+  };
 }
 
 export function applyWorkItemStatus(

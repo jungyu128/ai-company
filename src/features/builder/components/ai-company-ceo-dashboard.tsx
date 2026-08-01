@@ -26,6 +26,10 @@ import {
   useLiveOfficeModel,
 } from "@/features/builder/live-office/ai-company-live-office";
 import { LiveOfficeConversationPanel } from "@/features/builder/live-office/live-office-conversation-panel";
+import {
+  CeoOperatingCenter,
+  CeoOperatingCenterStrip,
+} from "@/features/builder/components/ceo-operating-center";
 
 type Props = {
   initial: AiCompanyDashboard;
@@ -100,8 +104,15 @@ export function AiCompanyCeoDashboard({ initial }: Props) {
       live={live}
       onlineCount={onlineCount}
       approvalCount={initial.ceoApprovalQueue.count}
+      operatingCenterCount={
+        initial.operatingCenter.decisionCenter.count +
+        initial.operatingCenter.criticalAlerts.length
+      }
       ops={
         <div className="hq-ops-panels space-y-10">
+          <section id="ops-operating-center">
+            <CeoOperatingCenter center={initial.operatingCenter} />
+          </section>
           <section id="ops-approvals">
             <CeoApprovalQueue
               items={initial.ceoApprovalQueue.items}
@@ -174,6 +185,10 @@ export function AiCompanyCeoDashboard({ initial }: Props) {
       }
     >
       <div className="hq-main">
+        <div className="mb-4 px-1">
+          <CeoOperatingCenterStrip center={initial.operatingCenter} />
+        </div>
+
         <AiCompanyLiveOffice
           dashboard={initial}
           selectedId={selectedId}

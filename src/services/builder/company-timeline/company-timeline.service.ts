@@ -46,6 +46,11 @@ function workspaceKindFor(
     case "resumed":
     case "meeting_started":
     case "meeting_completed":
+    case "mission":
+    case "planning":
+    case "discussion":
+    case "execution":
+    case "deployment_ready":
     default:
       return "assignment";
   }

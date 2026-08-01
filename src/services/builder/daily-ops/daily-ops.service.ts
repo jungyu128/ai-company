@@ -19,6 +19,7 @@ import {
   clarifyDirectiveOutcome,
   dependenciesSatisfied,
   newDailyId,
+  normalizeDailyWorkItem,
   workSummaryCounts,
 } from "./daily-ops.logic";
 import {
@@ -39,6 +40,12 @@ import {
   recordCompanyTimelineEvent,
   recordWorkStateTimelineTransition,
 } from "../company-timeline";
+import { statusAfterCeoRejection } from "../operating-system-v2/os-v2.logic";
+import {
+  formatAdviceForAnalysisNotes,
+  getPlanningKnowledgeAdvice,
+  learnFromCompletedMission,
+} from "../company-learning";
 import type {
   CeoDailyOpsAction,
   DailyDirective,
@@ -100,8 +107,14 @@ export function getDailyOpsSnapshot(input?: {
     store.directives.find((d) => d.date === date) ??
     null;
 
-  const activePlan = today?.activePlanId
+  const activePlanRaw = today?.activePlanId
     ? store.plans.find((p) => p.id === today.activePlanId) ?? null
+    : null;
+  const activePlan = activePlanRaw
+    ? {
+        ...activePlanRaw,
+        proposedWorkItems: activePlanRaw.proposedWorkItems.map(normalizeDailyWorkItem),
+      }
     : null;
 
   const items = activePlan?.proposedWorkItems ?? [];
@@ -294,10 +307,21 @@ export function analyzeAndProposePlan(input: {
   upsertDirective(nextDir, root, workspaceId);
 
   const clarified = clarifyDirectiveOutcome(nextDir);
+
+  // Company Learning Engine — search recorded knowledge before proposing work
+  const advice = getPlanningKnowledgeAdvice({
+    query: `${nextDir.title} ${nextDir.instruction} ${nextDir.intendedOutcome}`,
+    repoRoot: root,
+    workspaceId,
+  });
+  const knowledgeNotes = formatAdviceForAnalysisNotes(advice);
+
   nextDir = {
     ...nextDir,
     clarifiedOutcome: clarified.clarifiedOutcome,
-    analysisNotes: clarified.analysisNotes,
+    analysisNotes: [clarified.analysisNotes, knowledgeNotes]
+      .filter(Boolean)
+      .join("\n\n"),
     status: "PLAN_PROPOSED",
     updatedAt: now,
   };
@@ -345,6 +369,19 @@ export function analyzeAndProposePlan(input: {
     changeNote: input.changeNote,
   });
   plan.status = "AWAITING_APPROVAL";
+
+  // Attach recorded knowledge warnings as work-item risks (never fabricated)
+  if (advice.repeatedMistakeWarnings.length > 0) {
+    const warnRisks = advice.repeatedMistakeWarnings.slice(0, 3).map((w) => w.knowledge.body);
+    plan.proposedWorkItems = plan.proposedWorkItems.map((w) => ({
+      ...w,
+      risks: [...(w.risks ?? []), ...warnRisks].slice(0, 8),
+    }));
+  }
+  if (advice.recommendedEngineers[0]) {
+    const hint = `Strong history: ${advice.recommendedEngineers[0].employeeName} — ${advice.recommendedEngineers[0].reason}`;
+    plan.assumptions = [...(plan.assumptions ?? []), hint];
+  }
 
   // Fix superseded pointers
   for (const p of getDailyOpsStore(root, workspaceId).plans) {
@@ -1072,28 +1109,40 @@ export function applyCeoDailyOpsAction(input: {
           status: 400,
         };
       }
-      const blocked = applyWorkItemStatus(item, "BLOCKED", now, {
-        blockedReason: `CEO requested changes: ${action.note}`,
-        pendingProtectedAction: item.pendingProtectedAction,
-        pendingProtectedReason: action.note,
+      const returned = statusAfterCeoRejection({
+        action: "request_changes",
+        note: action.note ?? null,
+      });
+      const replanned = applyWorkItemStatus(item, returned.status, now, {
+        approvalState: returned.approvalState,
+        executionPermission: returned.executionPermission,
+        blockedReason: returned.blockedReason,
+        nextAction: returned.nextAction,
+        pendingProtectedAction: null,
+        pendingProtectedReason: action.note ?? null,
       });
       const items = plan.proposedWorkItems.map((w) =>
-        w.id === blocked.id ? blocked : w
+        w.id === replanned.id ? replanned : w
       );
       upsertPlan(
         {
           ...plan,
           proposedWorkItems: items,
           updatedAt: now,
-          approvalRequirements: plan.approvalRequirements.map((a) =>
-            a.kind === "protected_action" && a.workItemId === item.id
-              ? {
-                  ...a,
-                  status: "pending" as const,
-                  summary: `Revise protected action after CEO note: ${action.note}`,
-                }
-              : a
-          ),
+          approvalRequirements: [
+            ...plan.approvalRequirements.filter(
+              (a) =>
+                !(a.kind === "protected_action" && a.workItemId === item.id)
+            ),
+            {
+              id: `apr-prot-chg-${item.id}-${Date.now().toString(36)}`,
+              kind: "work_item" as const,
+              workItemId: item.id,
+              protectedAction: null,
+              summary: `Re-approve after protected-action changes: ${item.title} — ${action.note}`,
+              status: "pending" as const,
+            },
+          ],
         },
         root,
         workspaceId
@@ -1108,34 +1157,63 @@ export function applyCeoDailyOpsAction(input: {
           directiveId: plan.directiveId,
           planId: plan.id,
           workItemId: item.id,
-          detail: `CEO requested changes on protected action for ${item.title}: ${action.note}`,
+          detail: `CEO requested changes on protected action for ${item.title}: ${action.note} — returned to Planning`,
           result: "ok",
         },
         root,
         workspaceId
       );
     } else {
-      const blocked = applyWorkItemStatus(item, "BLOCKED", now, {
-        blockedReason: action.note ?? "Protected action rejected by CEO",
-        pendingProtectedAction: item.pendingProtectedAction,
+      const returned = statusAfterCeoRejection({
+        action: "reject",
+        note: action.note ?? null,
+      });
+      const replanned = applyWorkItemStatus(item, returned.status, now, {
+        approvalState: returned.approvalState,
+        executionPermission: returned.executionPermission,
+        blockedReason: returned.blockedReason,
+        nextAction: returned.nextAction,
+        pendingProtectedAction: null,
       });
       const items = plan.proposedWorkItems.map((w) =>
-        w.id === blocked.id ? blocked : w
+        w.id === replanned.id ? replanned : w
       );
       upsertPlan(
         {
           ...plan,
           proposedWorkItems: items,
           updatedAt: now,
-          approvalRequirements: plan.approvalRequirements.map((a) =>
-            a.kind === "protected_action" && a.workItemId === item.id
-              ? { ...a, status: "rejected" as const }
-              : a
-          ),
+          approvalRequirements: [
+            ...plan.approvalRequirements.filter(
+              (a) =>
+                !(a.kind === "protected_action" && a.workItemId === item.id)
+            ),
+            {
+              id: `apr-replan-${item.id}-${Date.now().toString(36)}`,
+              kind: "work_item" as const,
+              workItemId: item.id,
+              protectedAction: null,
+              summary: `Re-approve after rejection: ${item.title}`,
+              status: "pending" as const,
+            },
+          ],
         },
         root,
         workspaceId
       );
+      recordCompanyTimelineEvent({
+        kind: "resumed",
+        summary: `${item.title} returned to Planning after CEO rejection`,
+        at: now,
+        actorUserId: input.actorUserId,
+        actorName: input.actorName,
+        actorRole: "owner",
+        directiveId: plan.directiveId,
+        workItemId: item.id,
+        employeeId: item.assignedEmployeeId,
+        repoRoot: root,
+        workspaceId,
+      });
       audit(
         {
           at: now,
@@ -1146,7 +1224,7 @@ export function applyCeoDailyOpsAction(input: {
           directiveId: plan.directiveId,
           planId: plan.id,
           workItemId: item.id,
-          detail: `CEO rejected protected action on ${item.title}`,
+          detail: `CEO rejected protected action on ${item.title} — returned to Planning`,
           result: "ok",
         },
         root,
@@ -1160,8 +1238,8 @@ export function applyCeoDailyOpsAction(input: {
         action.action === "approve_protected_action"
           ? "Protected action approved."
           : action.action === "request_protected_action_changes"
-            ? "Changes requested — protected action remains blocked until re-approved."
-            : "Protected action rejected — work remains blocked.",
+            ? "Changes requested — work returned to Planning until re-approved."
+            : "Protected action rejected — work returned to Planning.",
     };
   }
 
@@ -1183,21 +1261,16 @@ export function applyCeoDailyOpsAction(input: {
       return { ok: false, code: "NOT_FOUND", message: "Work item not found", status: 404 };
     }
     const rejecting = action.action === "reject_work_item";
-    const updated = applyWorkItemStatus(
-      item,
-      rejecting ? "REJECTED" : "AWAITING_APPROVAL",
-      now,
-      {
-        approvalState: rejecting ? "rejected" : "changes_requested",
-        executionPermission: "DENIED",
-        blockedReason: rejecting
-          ? action.note ?? "Rejected by CEO"
-          : `CEO requested changes: ${action.note}`,
-        nextAction: rejecting
-          ? "Closed — rejected by CEO"
-          : "Revise proposal for CEO re-approval",
-      }
-    );
+    const returned = statusAfterCeoRejection({
+      action: rejecting ? "reject" : "request_changes",
+      note: action.note ?? null,
+    });
+    const updated = applyWorkItemStatus(item, returned.status, now, {
+      approvalState: returned.approvalState,
+      executionPermission: returned.executionPermission,
+      blockedReason: returned.blockedReason,
+      nextAction: returned.nextAction,
+    });
     const items = plan.proposedWorkItems.map((w) =>
       w.id === updated.id ? updated : w
     );
@@ -1206,45 +1279,25 @@ export function applyCeoDailyOpsAction(input: {
         ...plan,
         proposedWorkItems: items,
         updatedAt: now,
-        approvalRequirements: plan.approvalRequirements.map((a) =>
-          a.kind === "work_item" && a.workItemId === item.id
-            ? {
-                ...a,
-                status: rejecting
-                  ? ("rejected" as const)
-                  : ("changes_requested" as const),
-              }
-            : a
-        ),
+        approvalRequirements: [
+          ...plan.approvalRequirements.filter(
+            (a) => !(a.kind === "work_item" && a.workItemId === item.id)
+          ),
+          {
+            id: `apr-chg-${item.id}-${Date.now().toString(36)}`,
+            kind: "work_item" as const,
+            workItemId: item.id,
+            protectedAction: null,
+            summary: rejecting
+              ? `Re-approve after rejection: ${item.title}`
+              : `Re-approve after changes: ${item.title} — ${action.note}`,
+            status: "pending" as const,
+          },
+        ],
       },
       root,
       workspaceId
     );
-    // Request-changes keeps a pending queue entry so CEO can re-approve later.
-    if (!rejecting) {
-      const refreshed = findPlan(action.planId, root, workspaceId)!;
-      upsertPlan(
-        {
-          ...refreshed,
-          approvalRequirements: [
-            ...refreshed.approvalRequirements.filter(
-              (a) => !(a.kind === "work_item" && a.workItemId === item.id)
-            ),
-            {
-              id: `apr-chg-${item.id}-${Date.now().toString(36)}`,
-              kind: "work_item",
-              workItemId: item.id,
-              protectedAction: null,
-              summary: `Re-approve after changes: ${item.title} — ${action.note}`,
-              status: "pending",
-            },
-          ],
-          updatedAt: now,
-        },
-        root,
-        workspaceId
-      );
-    }
     audit(
       {
         at: now,
@@ -1258,8 +1311,8 @@ export function applyCeoDailyOpsAction(input: {
         planId: plan.id,
         workItemId: item.id,
         detail: rejecting
-          ? `CEO rejected work item ${item.title}`
-          : `CEO requested changes on ${item.title}: ${action.note}`,
+          ? `CEO rejected work item ${item.title} — returned to Planning`
+          : `CEO requested changes on ${item.title}: ${action.note} — returned to Planning`,
         result: "ok",
       },
       root,
@@ -1269,8 +1322,8 @@ export function applyCeoDailyOpsAction(input: {
       ok: true,
       snapshot: getDailyOpsSnapshot({ repoRoot: root, workspaceId, now }),
       message: rejecting
-        ? "Work item rejected — execution remains DENIED."
-        : "Changes requested — execution remains DENIED until re-approved.",
+        ? "Work item rejected — returned to Planning for replan."
+        : "Changes requested — work returned to Planning.",
     };
   }
 
@@ -1323,6 +1376,14 @@ export function applyCeoDailyOpsAction(input: {
       root,
       workspaceId
     );
+    // Company Learning Engine — append-only lesson from recorded state
+    learnFromCompletedMission({
+      directive: { ...dir, status: "COMPLETED", updatedAt: now },
+      plan,
+      repoRoot: root,
+      workspaceId,
+      now,
+    });
     return {
       ok: true,
       snapshot: getDailyOpsSnapshot({ repoRoot: root, workspaceId, now }),

@@ -527,7 +527,11 @@ describe("daily ops workflow + enforcement", () => {
       });
     }
 
-    const after = getDailyOpsSnapshot({ repoRoot: tmp });
+    const after = getDailyOpsSnapshot({
+      repoRoot: tmp,
+      date: "2026-07-31",
+      now: "2026-07-31T09:00:00.000Z",
+    });
     const feAfter = after.activePlan!.proposedWorkItems.find((w) => w.id === fe.id);
     assert.ok(feAfter);
     assert.equal(feAfter!.executionPermission, "GRANTED");

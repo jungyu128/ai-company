@@ -190,6 +190,15 @@ html:has(.ai-hq) body {
     linear-gradient(#000 0 0) 30% 40% / 2px 40% no-repeat,
     linear-gradient(#000 0 0) 70% 40% / 2px 40% no-repeat;
 }
+.hq-nav-glyph--operating {
+  border-radius: 0.15rem;
+  box-shadow: inset 0 0 0 1.5px currentColor;
+  border: 0;
+  background:
+    linear-gradient(currentColor, currentColor) center / 55% 1.5px no-repeat,
+    linear-gradient(currentColor, currentColor) center / 1.5px 55% no-repeat;
+  opacity: 0.8;
+}
 .hq-nav-glyph--employees {
   border-radius: 999px 999px 0.2rem 0.2rem;
 }

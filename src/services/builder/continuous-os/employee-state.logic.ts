@@ -5,6 +5,7 @@
 import type { DevTask, DevTaskStatus } from "../autonomous-company/types";
 import type { EmployeeLiveState, EmployeeWorkState } from "./types";
 import { AI_COMPANY_EMPLOYEES } from "../ai-company-employees";
+import { nextWorkStateV2 } from "../operating-system-v2/os-v2.logic";
 
 export function workStateFromDevStatus(status: DevTaskStatus): EmployeeWorkState {
   switch (status) {
@@ -27,25 +28,16 @@ export function workStateFromDevStatus(status: DevTaskStatus): EmployeeWorkState
 }
 
 /** Advance a non-interrupted employee one step along the continuous workday path. */
-export function nextWorkState(state: EmployeeWorkState): EmployeeWorkState | null {
-  switch (state) {
-    case "Idle":
-      return "Planning";
-    case "Planning":
-      return "Working";
-    case "Working":
-      return "Reviewing";
-    case "Reviewing":
-      return "Waiting";
-    case "Meeting":
-      return "Working";
-    case "Waiting":
-    case "Blocked":
-    case "Completed":
-      return null;
-    default:
-      return null;
+export function nextWorkState(
+  state: EmployeeWorkState,
+  opts?: {
+    pendingCeoApproval?: boolean;
+    interrupted?: boolean;
+    dependencyIncomplete?: boolean;
+    blockedReason?: string | null;
   }
+): EmployeeWorkState | null {
+  return nextWorkStateV2(state, opts);
 }
 
 export function mapWorkStateToDevStatus(state: EmployeeWorkState): DevTaskStatus {

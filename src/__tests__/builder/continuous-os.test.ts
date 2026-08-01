@@ -35,11 +35,12 @@ describe("employee work state mapping", () => {
     assert.equal(workStateFromDevStatus("done"), "Completed");
   });
 
-  it("advances Idle → Planning → Working → Reviewing → Waiting", () => {
+  it("advances Idle → Planning → Working → Reviewing → Working (Waiting only with real gate)", () => {
     assert.equal(nextWorkState("Idle"), "Planning");
     assert.equal(nextWorkState("Planning"), "Working");
     assert.equal(nextWorkState("Working"), "Reviewing");
-    assert.equal(nextWorkState("Reviewing"), "Waiting");
+    assert.equal(nextWorkState("Reviewing"), "Working");
+    assert.equal(nextWorkState("Reviewing", { pendingCeoApproval: true }), "Waiting");
     assert.equal(nextWorkState("Meeting"), "Working");
     assert.equal(nextWorkState("Waiting"), null);
     assert.equal(nextWorkState("Blocked"), null);

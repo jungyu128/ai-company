@@ -7,6 +7,7 @@ import { listCollaborations } from "./collaboration.store";
 import { formatHqDateTimeDisplay } from "./format-hq-display";
 import { isInternalAiCompanyEnabled } from "./internal-ai-company";
 import { getEmployeeDefinition } from "./ai-company-employees";
+import { getCeoBriefingV2 } from "./operating-system-v2";
 import {
   applyRecommendationDecision,
   buildExecutiveBrief,
@@ -86,11 +87,49 @@ export function getProactiveDashboardSlice(options?: {
   );
   const signals = listProactiveSignals(root, workspaceId);
   const pendingApprovals = listApprovalCenter(root, workspaceId);
-  const executiveBrief = buildExecutiveBrief({
+  const baseBrief = buildExecutiveBrief({
     recommendations,
     pendingApprovals,
     generatedAtDisplay: options?.generatedAtDisplay ?? formatHqDateTimeDisplay(new Date().toISOString()),
   });
+  let executiveBrief = baseBrief;
+  try {
+    const opsBrief = getCeoBriefingV2({
+      repoRoot: root,
+      workspaceId,
+    });
+    executiveBrief = {
+      ...baseBrief,
+      headline: opsBrief.headline || baseBrief.headline,
+      summary: opsBrief.summary || baseBrief.summary,
+      highestPriorities:
+        opsBrief.highestPriorities.length > 0
+          ? opsBrief.highestPriorities
+          : baseBrief.highestPriorities,
+      risks:
+        opsBrief.risks.length > 0 ? opsBrief.risks : baseBrief.risks,
+      pendingApprovals:
+        opsBrief.pendingApprovals.length > 0
+          ? opsBrief.pendingApprovals
+          : baseBrief.pendingApprovals,
+      suggestedActions:
+        opsBrief.suggestedActions.length > 0
+          ? opsBrief.suggestedActions
+          : baseBrief.suggestedActions,
+      whatChanged: opsBrief.whatChanged,
+      currentBlockers: opsBrief.currentBlockers,
+      decisionsNeeded: opsBrief.decisionsNeeded,
+      employeesWaiting: opsBrief.employeesWaiting,
+      completedWork: opsBrief.completedWork,
+      recommendedNextAction: opsBrief.recommendedNextAction,
+      opportunities:
+        opsBrief.opportunities.length > 0
+          ? opsBrief.opportunities
+          : baseBrief.opportunities,
+    };
+  } catch {
+    /* OS v2 briefing is additive — keep proactive brief on failure */
+  }
   const priorityAlerts = buildPriorityAlerts(signals, recommendations);
   const companyHealth = computeCompanyHealth({
     metrics: options?.metrics ?? {

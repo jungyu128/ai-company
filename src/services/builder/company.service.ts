@@ -64,6 +64,19 @@ import {
   type LiveWorkTrackerEntry,
 } from "./live-work-tracker";
 import { getLiveWorkTrackerSnapshot } from "./live-work-tracker/server";
+import {
+  buildCeoOperatingCenterView,
+  type CeoOperatingCenterView,
+} from "./ceo-operating-center";
+import type {
+  CompanyBrainAnalyticsInput,
+  CompanyBrainGithubInput,
+} from "./company-brain";
+import { getContinuousOsSnapshot } from "./continuous-os";
+import { getCompanyAnalyticsView } from "./analytics/analytics.service";
+import { getConnectionStatus } from "@/services/github/github.service";
+import { getWorkExecutionEngineView } from "./work-execution-engine";
+import { getCompanyLearningView } from "./company-learning";
 
 export type CompanyWorkItem = {
   id: string;
@@ -162,6 +175,8 @@ export type AiCompanyDashboard = {
   executive: ExecutiveDashboard;
   /** Company Activity Timeline — persisted lifecycle events. */
   companyTimeline: CompanyTimelineView;
+  /** CEO Operating Center — proactive single-screen command surface. */
+  operatingCenter: CeoOperatingCenterView;
 };
 
 function performanceFor(status: AiCompanyEmployeeStatus, completedToday: number) {
@@ -369,6 +384,110 @@ export async function getAiCompanyDashboard(options?: {
     limit: 80,
   });
 
+  const continuousOs = getContinuousOsSnapshot({
+    repoRoot: root,
+    workspaceId,
+  });
+
+  let analyticsSlice: CompanyBrainAnalyticsInput | null = null;
+  try {
+    const analytics = getCompanyAnalyticsView({
+      repoRoot: root,
+      workspaceId,
+      now: executive.generatedAt,
+    });
+    analyticsSlice = {
+      healthScore: analytics.snapshot.kpis.companyHealthScore,
+      blockedWorkCount: analytics.snapshot.kpis.blockedWorkCount,
+      sprintVelocity: analytics.snapshot.kpis.sprintVelocity,
+      qaPassRatePercent: analytics.snapshot.kpis.qaPassRatePercent,
+      activeWorkCount: analytics.snapshot.kpis.activeWorkCount,
+      completedWorkCount: analytics.snapshot.kpis.completedWorkCount,
+      recurringBlockers: analytics.snapshot.recurringBlockers.map((b) => ({
+        label: b.label,
+        count: b.count,
+      })),
+      employeeActive: analytics.snapshot.employees.map((e) => ({
+        name: e.employeeName,
+        active: e.active,
+        blocked: e.blocked,
+      })),
+    };
+  } catch {
+    analyticsSlice = null;
+  }
+
+  let githubSlice: CompanyBrainGithubInput | null = null;
+  try {
+    const gh = await getConnectionStatus();
+    githubSlice = {
+      connected: gh.connected,
+      tokenConfigured: gh.tokenConfigured,
+      owner: gh.owner,
+      repo: gh.repo,
+      error: gh.error,
+      pushedAt: gh.repository?.pushedAt ?? null,
+    };
+  } catch {
+    githubSlice = null;
+  }
+
+  const memoryDash = os.commandCenter.companyMemory;
+
+  const workExecution = getWorkExecutionEngineView({
+    repoRoot: root,
+    workspaceId,
+    now: executive.generatedAt,
+    brainPrioritized: true,
+    executiveRecommendationPresent: true,
+    approvalPendingCount: ceoApprovalQueue.count,
+    protectedPendingCount: ceoApprovalQueue.protectedCount,
+  });
+
+  const learning = getCompanyLearningView({
+    repoRoot: root,
+    workspaceId,
+    now: executive.generatedAt,
+    observe: true,
+  });
+
+  const operatingCenter = buildCeoOperatingCenterView({
+    generatedAt: executive.generatedAt,
+    generatedAtDisplay: hq.generatedAtDisplay,
+    executiveBrief: os.executiveBrief,
+    priorityAlerts: os.priorityAlerts,
+    companyHealth: os.companyHealth,
+    metrics,
+    employees,
+    ceoApprovalQueue,
+    companyTimelineEvents: companyTimeline.events,
+    executive,
+    risks: os.risks,
+    opportunities: os.opportunities,
+    workExecution,
+    learning,
+    brainExtras: {
+      analytics: analyticsSlice,
+      github: githubSlice,
+      continuousOs: {
+        running: continuousOs.running,
+        lastTickAt: continuousOs.lastTickAt,
+        activeTaskCount: continuousOs.activeTasks.length,
+        recentDecisionCount: continuousOs.recentDecisions.length,
+      },
+      employeeRecommendations: os.recommendations.map((r) => ({
+        title: r.title,
+        status: r.status,
+        summary: r.recommendation,
+      })),
+      memory: {
+        insightCount: memoryDash.newInsights.length,
+        preferenceCount: memoryDash.learnedPreferences.length,
+        lastLearnedAt: memoryDash.lastLearnedAt,
+      },
+    },
+  });
+
   return {
     generatedAtDisplay: hq.generatedAtDisplay,
     headline: os.executiveBrief.headline,
@@ -397,6 +516,7 @@ export async function getAiCompanyDashboard(options?: {
     },
     executive,
     companyTimeline,
+    operatingCenter,
   };
 }
 

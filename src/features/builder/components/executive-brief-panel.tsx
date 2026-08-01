@@ -18,12 +18,42 @@ export function ExecutiveBriefPanel({ brief }: Props) {
         Generated {brief.generatedAtDisplay}
       </p>
 
+      {brief.recommendedNextAction ? (
+        <p className="mt-4 rounded-lg border border-[var(--hq-line)] bg-white/5 px-3 py-2 text-sm">
+          <span className="hq-mono text-[10px] uppercase tracking-wide text-[var(--hq-muted)]">
+            Recommended next action
+          </span>
+          <span className="mt-1 block font-medium">{brief.recommendedNextAction}</span>
+        </p>
+      ) : null}
+
       <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <BriefList title="What changed" items={brief.whatChanged ?? []} />
+        <BriefList title="Current blockers" items={brief.currentBlockers ?? []} />
+        <BriefList title="Decisions needed" items={brief.decisionsNeeded ?? brief.pendingApprovals} />
+        <BriefList title="Completed work" items={brief.completedWork ?? []} />
         <BriefList title="Highest priorities" items={brief.highestPriorities} />
         <BriefList title="Suggested actions" items={brief.suggestedActions} />
         <BriefList title="Risks" items={brief.risks} />
         <BriefList title="Opportunities" items={brief.opportunities} />
         <BriefList title="Pending approvals" items={brief.pendingApprovals} />
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-[var(--hq-muted)]">
+            Employees waiting
+          </p>
+          {(brief.employeesWaiting ?? []).length === 0 ? (
+            <p className="mt-2 text-sm text-[var(--hq-muted)]">None waiting on CEO.</p>
+          ) : (
+            <ul className="mt-2 space-y-2 text-sm">
+              {(brief.employeesWaiting ?? []).map((e) => (
+                <li key={e.employeeId} className="rounded-lg bg-white px-3 py-2">
+                  <span className="font-medium">{e.employeeName}</span>
+                  <p className="mt-0.5 text-[var(--hq-muted)]">{e.waitingFor}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <div>
           <p className="text-[11px] uppercase tracking-wide text-[var(--hq-muted)]">
             Recommended assignments

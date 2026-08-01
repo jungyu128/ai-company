@@ -20,6 +20,7 @@ type NavItem = {
  */
 const NAV: NavItem[] = [
   { id: "overview", label: "HQ Overview", href: "/builder/hq", match: "exact" },
+  { id: "operating", label: "Operating Center", opsId: "ops-operating-center" },
   { id: "employees", label: "Employees", href: "/builder/hq/employees/sarah", match: "prefix" },
   { id: "tasks", label: "Tasks", opsId: "ops-command" },
   { id: "projects", label: "Projects", opsId: "ops-collaborations" },
@@ -37,6 +38,8 @@ type Props = {
   live?: boolean;
   onlineCount?: number;
   approvalCount?: number;
+  /** Inbox / decision urgency badge for Operating Center nav. */
+  operatingCenterCount?: number;
   children: ReactNode;
   ops?: ReactNode;
 };
@@ -58,6 +61,7 @@ export function HqShell({
   live,
   onlineCount = 0,
   approvalCount = 0,
+  operatingCenterCount = 0,
   children,
   ops,
 }: Props) {
@@ -117,7 +121,12 @@ export function HqShell({
             const active =
               isActive(pathname, item) ||
               (opsOpen && item.opsId != null && opsTarget === item.opsId);
-            const badge = item.id === "approvals" ? approvalCount : 0;
+            const badge =
+              item.id === "approvals"
+                ? approvalCount
+                : item.id === "operating"
+                  ? operatingCenterCount
+                  : 0;
             const className = `hq-sidebar__link${active ? " hq-sidebar__link--active" : ""}`;
             const content = (
               <>
