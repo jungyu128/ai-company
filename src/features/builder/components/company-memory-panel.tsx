@@ -8,17 +8,31 @@ import {
   type InsightAction,
   type MemoryInsightSnapshot,
 } from "@/features/builder/lib/company-memory-insight-actions";
+import {
+  buildInsightActionRequest,
+  buildInsightActionUrl,
+  fetchInsightDashboard,
+  mergePropsWithAppliedDecisions,
+  pruneAppliedDecisions,
+  recordAppliedDecision,
+  resolveInsightActionResult,
+  snapshotFromDashboardPayload,
+  type AppliedInsightDecision,
+  type InsightActionApiResponse,
+} from "@/features/builder/lib/company-memory-insight-client";
 
 type Props = {
   learnedPreferences: CompanyMemory[];
   newInsights: CompanyMemory[];
   recentlyUpdated: CompanyMemory[];
   lastLearnedAt: string | null;
+  workspaceId: string;
 };
 
 type ToastState = {
   tone: "success" | "error";
   message: string;
+  retry?: { action: InsightAction | "reset"; memoryId?: string };
 } | null;
 
 export function CompanyMemoryPanel({
@@ -26,28 +40,56 @@ export function CompanyMemoryPanel({
   newInsights,
   recentlyUpdated,
   lastLearnedAt,
+  workspaceId,
 }: Props) {
   const router = useRouter();
   const [toast, setToast] = useState<ToastState>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [pendingAction, setPendingAction] = useState<InsightAction | "reset" | null>(
+    null
+  );
+  const [, startTransition] = useTransition();
   const inFlight = useRef(false);
+  const appliedRef = useRef<AppliedInsightDecision[]>([]);
 
-  const [local, setLocal] = useState<MemoryInsightSnapshot>({
+  const [local, setLocal] = useState<MemoryInsightSnapshot>(() =>
+    mergePropsWithAppliedDecisions(
+      { newInsights, learnedPreferences, recentlyUpdated },
+      []
+    )
+  );
+
+  // Always prefer the live memory store — SSR props can lag behind in-memory runtime storage.
+  useEffect(() => {
+    if (inFlight.current || pendingId) return;
+    let cancelled = false;
+    void (async () => {
+      const live = await fetchInsightDashboard(workspaceId);
+      if (cancelled || inFlight.current) return;
+      if (live) {
+        appliedRef.current = pruneAppliedDecisions(appliedRef.current, live);
+        setLocal(mergePropsWithAppliedDecisions(live, appliedRef.current));
+        return;
+      }
+      // Fallback to SSR only when GET fails
+      const propsSnap = { newInsights, learnedPreferences, recentlyUpdated };
+      appliedRef.current = pruneAppliedDecisions(appliedRef.current, propsSnap);
+      setLocal(mergePropsWithAppliedDecisions(propsSnap, appliedRef.current));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    workspaceId,
+    pendingId,
     newInsights,
     learnedPreferences,
     recentlyUpdated,
-  });
-
-  // Sync from server when props refresh (after successful action)
-  useEffect(() => {
-    if (inFlight.current || pendingId) return;
-    setLocal({ newInsights, learnedPreferences, recentlyUpdated });
-  }, [newInsights, learnedPreferences, recentlyUpdated, pendingId]);
+  ]);
 
   useEffect(() => {
     if (!toast) return;
-    const t = window.setTimeout(() => setToast(null), 3200);
+    const t = window.setTimeout(() => setToast(null), 4200);
     return () => window.clearTimeout(t);
   }, [toast]);
 
@@ -60,39 +102,79 @@ export function CompanyMemoryPanel({
       const previous = local;
       const targetId = memoryId ?? "reset";
       setPendingId(targetId);
+      setPendingAction(action);
 
+      let optimistic = previous;
       if (action !== "reset" && memoryId) {
-        setLocal((snap) => applyInsightActionOptimistic(snap, memoryId, action));
+        optimistic = applyInsightActionOptimistic(previous, memoryId, action);
+        // Immediate Pending removal — no page refresh required
+        setLocal(optimistic);
+      } else if (action === "reset") {
+        optimistic = {
+          newInsights: [],
+          learnedPreferences: [],
+          recentlyUpdated: [],
+        };
+        setLocal(optimistic);
       }
 
       try {
-        const res = await fetch("/api/builder/hq/memory", {
+        const res = await fetch(buildInsightActionUrl(workspaceId), {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-ai-company-workspace": workspaceId,
+          },
           body: JSON.stringify(
-            action === "reset" ? { action: "reset" } : { action, memoryId }
+            buildInsightActionRequest(action, memoryId, workspaceId)
           ),
         });
-        const data = (await res.json()) as {
-          ok?: boolean;
-          error?: string;
-          dashboard?: MemoryInsightSnapshot;
+        const data = (await res.json()) as InsightActionApiResponse & {
+          code?: string;
         };
-        if (!res.ok || !data.ok) {
-          setLocal(previous);
+        const resolved = resolveInsightActionResult({
+          previous,
+          optimistic,
+          response: data,
+          ok: res.ok,
+        });
+
+        if (resolved.rolledBack) {
+          // Stale SSR IDs → resync from store so the CEO sees current Pending.
+          const live = await fetchInsightDashboard(workspaceId);
+          if (live) {
+            appliedRef.current = pruneAppliedDecisions(appliedRef.current, live);
+            setLocal(mergePropsWithAppliedDecisions(live, appliedRef.current));
+          } else {
+            setLocal(resolved.snapshot);
+          }
+          const stale =
+            data.code === "NOT_FOUND" ||
+            /not found/i.test(data.error ?? "");
           setToast({
             tone: "error",
-            message: data.error ?? "Could not update insight",
+            message: stale
+              ? "Insight list was out of date — refreshed. Try again."
+              : data.error ?? "Could not update insight",
+            retry: stale ? undefined : { action, memoryId },
           });
           return;
         }
 
-        if (data.dashboard) {
-          setLocal({
-            newInsights: data.dashboard.newInsights ?? [],
-            learnedPreferences: data.dashboard.learnedPreferences ?? [],
-            recentlyUpdated: data.dashboard.recentlyUpdated ?? [],
-          });
+        setLocal(
+          data.dashboard
+            ? snapshotFromDashboardPayload(data.dashboard)
+            : resolved.snapshot
+        );
+
+        if (action === "reset") {
+          appliedRef.current = [];
+        } else if (memoryId) {
+          appliedRef.current = recordAppliedDecision(
+            appliedRef.current,
+            memoryId,
+            action
+          );
         }
 
         const successMsg =
@@ -105,6 +187,7 @@ export function CompanyMemoryPanel({
                 : "Memories reset";
         setToast({ tone: "success", message: successMsg });
 
+        // Refresh Timeline / Audit / Learning / OC from stored state (non-blocking)
         startTransition(() => {
           router.refresh();
         });
@@ -113,16 +196,18 @@ export function CompanyMemoryPanel({
         setToast({
           tone: "error",
           message: "Network error while updating insight",
+          retry: { action, memoryId },
         });
       } finally {
         inFlight.current = false;
         setPendingId(null);
+        setPendingAction(null);
       }
     },
-    [local, router]
+    [local, router, workspaceId]
   );
 
-  const busy = pendingId != null || isPending;
+  const busy = pendingId != null;
 
   return (
     <section className="space-y-6">
@@ -164,13 +249,23 @@ export function CompanyMemoryPanel({
         <div
           role="status"
           aria-live="polite"
-          className={`rounded-xl border px-4 py-3 text-sm ${
+          className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm ${
             toast.tone === "success"
               ? "border-emerald-400/40 bg-emerald-50/80 text-emerald-900"
               : "border-[var(--hq-warn)]/40 bg-[var(--hq-warn-soft)] text-[var(--hq-warn)]"
           }`}
         >
-          {toast.message}
+          <span>{toast.message}</span>
+          {toast.retry ? (
+            <button
+              type="button"
+              disabled={busy}
+              className="rounded-lg border border-current/30 px-3 py-1 text-xs font-medium disabled:opacity-50"
+              onClick={() => void act(toast.retry!.action, toast.retry!.memoryId)}
+            >
+              Retry
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -179,6 +274,7 @@ export function CompanyMemoryPanel({
         empty="No pending insights."
         items={local.newInsights}
         pendingId={pendingId}
+        pendingAction={pendingAction}
         busy={busy}
         onAct={act}
         showActions
@@ -188,6 +284,7 @@ export function CompanyMemoryPanel({
         empty="No accepted preferences yet."
         items={local.learnedPreferences}
         pendingId={pendingId}
+        pendingAction={pendingAction}
         busy={busy}
         onAct={act}
         showActions
@@ -197,6 +294,7 @@ export function CompanyMemoryPanel({
         empty="No memories yet."
         items={local.recentlyUpdated}
         pendingId={pendingId}
+        pendingAction={pendingAction}
         busy={busy}
         onAct={act}
         showActions={false}
@@ -210,6 +308,7 @@ function MemoryGroup({
   empty,
   items,
   pendingId,
+  pendingAction,
   busy,
   onAct,
   showActions,
@@ -218,6 +317,7 @@ function MemoryGroup({
   empty: string;
   items: CompanyMemory[];
   pendingId: string | null;
+  pendingAction: InsightAction | "reset" | null;
   busy: boolean;
   onAct: (action: InsightAction, memoryId: string) => void;
   showActions: boolean;
@@ -231,7 +331,6 @@ function MemoryGroup({
         <ul className="mt-4 space-y-3">
           {items.map((m) => {
             const rowBusy = pendingId === m.id;
-            const disabled = busy;
             return (
               <li
                 key={m.id}
@@ -261,32 +360,38 @@ function MemoryGroup({
                       <>
                         <button
                           type="button"
-                          disabled={disabled}
-                          aria-busy={rowBusy}
+                          disabled={busy}
+                          aria-busy={rowBusy && pendingAction === "accept"}
+                          data-insight-id={m.id}
+                          data-insight-action="accept"
                           onClick={() => onAct("accept", m.id)}
                           className="rounded-lg bg-[var(--hq-signal)] px-3 py-1.5 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {rowBusy ? "Accepting…" : "Accept"}
+                          {rowBusy && pendingAction === "accept" ? "Accepting…" : "Accept"}
                         </button>
                         <button
                           type="button"
-                          disabled={disabled}
-                          aria-busy={rowBusy}
+                          disabled={busy}
+                          aria-busy={rowBusy && pendingAction === "ignore"}
+                          data-insight-id={m.id}
+                          data-insight-action="ignore"
                           onClick={() => onAct("ignore", m.id)}
                           className="rounded-lg border border-[var(--hq-line)] bg-white px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {rowBusy ? "Ignoring…" : "Ignore"}
+                          {rowBusy && pendingAction === "ignore" ? "Ignoring…" : "Ignore"}
                         </button>
                       </>
                     ) : null}
                     <button
                       type="button"
-                      disabled={disabled}
-                      aria-busy={rowBusy}
+                      disabled={busy}
+                      aria-busy={rowBusy && pendingAction === "remove"}
+                      data-insight-id={m.id}
+                      data-insight-action="remove"
                       onClick={() => onAct("remove", m.id)}
                       className="rounded-lg border border-[var(--hq-warn)]/40 bg-[var(--hq-warn-soft)] px-3 py-1.5 text-xs text-[var(--hq-warn)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {rowBusy ? "Removing…" : "Remove"}
+                      {rowBusy && pendingAction === "remove" ? "Removing…" : "Remove"}
                     </button>
                   </div>
                 ) : null}

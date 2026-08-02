@@ -145,6 +145,7 @@ export function AiCompanyCeoDashboard({ initial }: Props) {
           </section>
           <section id="ops-memory">
             <CompanyMemoryPanel
+              workspaceId={workspaceId}
               learnedPreferences={initial.commandCenter.companyMemory.learnedPreferences}
               newInsights={initial.commandCenter.companyMemory.newInsights}
               recentlyUpdated={initial.commandCenter.companyMemory.recentlyUpdated}

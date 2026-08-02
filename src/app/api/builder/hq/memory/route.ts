@@ -72,7 +72,26 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const auth = await getAuthContext();
   if (!auth) return unauthorized();
-  const workspaceId = resolveWorkspaceIdFromRequest(request);
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { ok: false, code: "INVALID", error: "Expected JSON body" },
+      { status: 400 }
+    );
+  }
+
+  const bodyWorkspaceId =
+    body && typeof body === "object" && "workspaceId" in body
+      ? (body as { workspaceId: unknown }).workspaceId
+      : undefined;
+  const workspaceId =
+    typeof bodyWorkspaceId === "string" && bodyWorkspaceId.trim()
+      ? bodyWorkspaceId.trim()
+      : resolveWorkspaceIdFromRequest(request);
+
   const access = ensureHqAccess({
     auth,
     workspaceId,
@@ -82,16 +101,6 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { ok: false, code: access.code, error: access.message },
       { status: access.status }
-    );
-  }
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { ok: false, code: "INVALID", error: "Expected JSON body" },
-      { status: 400 }
     );
   }
 
@@ -108,7 +117,13 @@ export async function POST(request: Request) {
         { status: result.status }
       );
     }
-    return NextResponse.json({ ok: true, reset: true });
+    return NextResponse.json({
+      ok: true,
+      reset: true,
+      dashboard: getCompanyMemoryDashboard({
+        workspaceId: access.ctx.workspaceId,
+      }),
+    });
   }
 
   const memoryId =

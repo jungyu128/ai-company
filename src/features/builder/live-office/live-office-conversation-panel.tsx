@@ -17,6 +17,12 @@ import type {
   HqChatQuickAction,
 } from "@/services/builder/hq-chat.logic";
 import { AI_COMPANY_EMPLOYEES } from "@/services/builder/ai-company-employees";
+import {
+  CONVERSATION_PANEL_LAYOUT,
+  recallEmployeeThread,
+  rememberEmployeeThread,
+  type ConversationThreadCacheEntry,
+} from "@/features/builder/lib/conversation-panel-layout";
 
 function delayUntilIso(hoursFromNow: number): string {
   return new Date(Date.now() + hoursFromNow * 3_600_000).toISOString();
@@ -28,10 +34,7 @@ type Props = {
   relatedRecommendation?: EmployeeRecommendation | null;
 };
 
-type ThreadCache = {
-  messages: HqChatMessage[];
-  quickActions: HqChatQuickAction[];
-};
+type ThreadCache = ConversationThreadCacheEntry<HqChatMessage, HqChatQuickAction>;
 
 function newClientRequestId(): string {
   return `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
@@ -58,6 +61,8 @@ export function LiveOfficeConversationPanel({
   const [streamingBody, setStreamingBody] = useState<string | null>(null);
   const [lastFailedText, setLastFailedText] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState(false);
+  // Closed by default so Action Required never steals chat height until CEO opens it.
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [swap, setSwap] = useState(false);
 
@@ -90,7 +95,7 @@ export function LiveOfficeConversationPanel({
       return;
     }
 
-    const cached = cacheRef.current.get(employee.id);
+    const cached = recallEmployeeThread(cacheRef.current, employee.id);
     if (cached) {
       setMessages(cached.messages);
       setQuickActions(cached.quickActions);
@@ -118,11 +123,15 @@ export function LiveOfficeConversationPanel({
           setError(data.error ?? "Could not load conversation");
           return;
         }
-        const next = {
+        const next: ThreadCache = {
           messages: data.messages ?? [],
           quickActions: data.quickActions ?? [],
         };
-        cacheRef.current.set(employee.id, next);
+        cacheRef.current = rememberEmployeeThread(
+          cacheRef.current,
+          employee.id,
+          next
+        );
         setMessages(next.messages);
         setQuickActions(next.quickActions);
         setError(null);
@@ -161,7 +170,7 @@ export function LiveOfficeConversationPanel({
     };
     setMessages((prev) => {
       const next = [...prev, optimistic];
-      cacheRef.current.set(employee.id, {
+      cacheRef.current = rememberEmployeeThread(cacheRef.current, employee.id, {
         messages: next,
         quickActions,
       });
@@ -222,10 +231,11 @@ export function LiveOfficeConversationPanel({
             setMessages((prev) => {
               const withoutLocal = prev.filter((m) => m.id !== optimistic.id);
               const next = [...withoutLocal, payload.message!];
-              cacheRef.current.set(employee.id, {
-                messages: next,
-                quickActions: nextActions,
-              });
+              cacheRef.current = rememberEmployeeThread(
+                cacheRef.current,
+                employee.id,
+                { messages: next, quickActions: nextActions }
+              );
               return next;
             });
           } else if (payload.type === "token" && payload.text) {
@@ -250,10 +260,11 @@ export function LiveOfficeConversationPanel({
             : prev;
           const withoutDup = base.filter((m) => m.id !== finalEmployee!.id);
           const next = [...withoutDup, finalEmployee!];
-          cacheRef.current.set(employee.id, {
-            messages: next,
-            quickActions: nextActions,
-          });
+          cacheRef.current = rememberEmployeeThread(
+            cacheRef.current,
+            employee.id,
+            { messages: next, quickActions: nextActions }
+          );
           return next;
         });
       }
@@ -355,8 +366,11 @@ export function LiveOfficeConversationPanel({
     quickActions.length > 0 || Boolean(relatedRecommendation);
 
   return (
-    <aside className="lo-conversation" aria-label="Employee conversation">
-      <div className="lo-conversation__head">
+    <aside
+      className={CONVERSATION_PANEL_LAYOUT.rootClass}
+      aria-label="Employee conversation"
+    >
+      <header className={CONVERSATION_PANEL_LAYOUT.headerClass}>
         <div className="min-w-0">
           <p className="lo-conversation__eyebrow">Conversation</p>
           <h3 className="lo-conversation__title">
@@ -367,16 +381,22 @@ export function LiveOfficeConversationPanel({
               ? `${employee.role} · ${employee.visualLabel}`
               : "Select a desk to open conversation"}
           </p>
+          {employee ? (
+            <p className="lo-conversation__status" aria-live="polite">
+              Live · {employee.visualEmoji} {employee.visualLabel}
+            </p>
+          ) : null}
         </div>
         {employee ? (
           <span
             className="lo-conversation__avatar"
             style={{ backgroundColor: employee.avatar.hue }}
+            aria-hidden
           >
             {employee.avatar.initials}
           </span>
         ) : null}
-      </div>
+      </header>
 
       <div
         key={employee?.id ?? "none"}
@@ -384,124 +404,153 @@ export function LiveOfficeConversationPanel({
       >
         {employee ? (
           <>
-            {loadingThread && messages.length === 0 ? (
-              <p className="lo-conversation__empty">Loading conversation…</p>
-            ) : messages.length === 0 && !typing ? (
-              <p className="lo-conversation__empty">
-                Ask {employee.name} a follow-up — replies use their role, mission, and company
-                context.
-              </p>
-            ) : (
-              <ul className="lo-conversation__list" ref={listRef}>
-                {messages.map((m) => (
-                  <li
-                    key={m.id}
-                    className={`lo-conversation__turn lo-conversation__turn--${m.role}${
-                      m.kind === "proactive" ? " lo-conversation__turn--proactive" : ""
-                    }`}
-                  >
-                    <p className="lo-conversation__speaker">
-                      {m.speakerName}
-                      {m.kind === "proactive" ? (
-                        <span className="lo-conversation__proactive-tag">Proactive</span>
-                      ) : null}
-                    </p>
-                    <p className="lo-conversation__body">{m.body}</p>
-                  </li>
-                ))}
-                {typing ? (
-                  <li className="lo-conversation__turn lo-conversation__turn--employee lo-conversation__turn--typing">
-                    <p className="lo-conversation__speaker">{employee.name}</p>
-                    <p className="lo-conversation__body">
-                      {streamingBody ? (
-                        streamingBody
-                      ) : (
-                        <span className="lo-conversation__typing-dots" aria-label="Typing">
-                          <span />
-                          <span />
-                          <span />
-                        </span>
-                      )}
-                    </p>
-                  </li>
-                ) : null}
-              </ul>
-            )}
+            <div className={CONVERSATION_PANEL_LAYOUT.chatClass}>
+              {loadingThread && messages.length === 0 ? (
+                <p className="lo-conversation__empty">Loading conversation…</p>
+              ) : messages.length === 0 && !typing ? (
+                <p className="lo-conversation__empty">
+                  Ask {employee.name} a follow-up — replies use their permanent role, mission,
+                  and company context.
+                </p>
+              ) : (
+                <ul
+                  className={CONVERSATION_PANEL_LAYOUT.listClass}
+                  ref={listRef}
+                  aria-label="Message history"
+                >
+                  {messages.map((m) => (
+                    <li
+                      key={m.id}
+                      className={`lo-conversation__turn lo-conversation__turn--${m.role}${
+                        m.kind === "proactive" ? " lo-conversation__turn--proactive" : ""
+                      }`}
+                    >
+                      <p className="lo-conversation__speaker">
+                        {m.speakerName}
+                        {m.kind === "proactive" ? (
+                          <span className="lo-conversation__proactive-tag">Proactive</span>
+                        ) : null}
+                      </p>
+                      <p className="lo-conversation__body">{m.body}</p>
+                    </li>
+                  ))}
+                  {typing ? (
+                    <li className="lo-conversation__turn lo-conversation__turn--employee lo-conversation__turn--typing">
+                      <p className="lo-conversation__speaker">{employee.name}</p>
+                      <p className="lo-conversation__body">
+                        {streamingBody ? (
+                          streamingBody
+                        ) : (
+                          <span className="lo-conversation__typing-dots" aria-label="Typing">
+                            <span />
+                            <span />
+                            <span />
+                          </span>
+                        )}
+                      </p>
+                    </li>
+                  ) : null}
+                </ul>
+              )}
 
-            {error ? (
-              <div className="lo-conversation__error-row">
-                <p className="lo-conversation__error">{error}</p>
-                {lastFailedText ? (
-                  <button
-                    type="button"
-                    className="lo-btn lo-btn--ghost"
-                    disabled={locked}
-                    onClick={() => void sendMessage(lastFailedText)}
-                  >
-                    Retry
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
+              {error ? (
+                <div className="lo-conversation__error-row">
+                  <p className="lo-conversation__error">{error}</p>
+                  {lastFailedText ? (
+                    <button
+                      type="button"
+                      className="lo-btn lo-btn--ghost"
+                      disabled={locked}
+                      onClick={() => void sendMessage(lastFailedText)}
+                    >
+                      Retry
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
 
             {showActions ? (
-              <div className="lo-conversation__actions">
-                {relatedRecommendation ? (
-                  <p className="lo-conversation__rec-title">{relatedRecommendation.title}</p>
-                ) : null}
-                {quickActions.includes("reassign") || relatedRecommendation ? (
-                  <label className="lo-conversation__reassign">
-                    Reassign to
-                    <select
-                      value={reassignTo}
-                      onChange={(e) => setReassignTo(e.target.value)}
-                      disabled={locked}
-                    >
-                      <option value="">Select employee…</option>
-                      {AI_COMPANY_EMPLOYEES.map((e) => (
-                        <option key={e.id} value={e.id}>
-                          {e.name} · {e.role}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-                <div className="lo-conversation__btns">
-                  {(quickActions.length
-                    ? quickActions
-                    : (["approve", "reject", "ask_evidence", "reassign", "delay"] as HqChatQuickAction[])
-                  ).map((action) => (
-                    <button
-                      key={action}
-                      type="button"
-                      disabled={
-                        locked || (action === "reassign" && !reassignTo && Boolean(relatedRecommendation))
-                      }
-                      onClick={() => onQuickAction(action)}
-                      className={
-                        action === "approve"
-                          ? "lo-btn lo-btn--primary"
+              <details
+                className={CONVERSATION_PANEL_LAYOUT.actionRequiredClass}
+                open={actionsOpen}
+                onToggle={(e) => setActionsOpen((e.target as HTMLDetailsElement).open)}
+              >
+                <summary className="lo-conversation__action-summary">
+                  Action Required
+                  {relatedRecommendation ? (
+                    <span className="lo-conversation__action-count">1</span>
+                  ) : null}
+                </summary>
+                <div className="lo-conversation__actions">
+                  {relatedRecommendation ? (
+                    <p className="lo-conversation__rec-title">
+                      {relatedRecommendation.title}
+                    </p>
+                  ) : null}
+                  {quickActions.includes("reassign") || relatedRecommendation ? (
+                    <label className="lo-conversation__reassign">
+                      Reassign to
+                      <select
+                        value={reassignTo}
+                        onChange={(e) => setReassignTo(e.target.value)}
+                        disabled={locked}
+                      >
+                        <option value="">Select employee…</option>
+                        {AI_COMPANY_EMPLOYEES.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {e.name} · {e.role}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                  <div className="lo-conversation__btns">
+                    {(quickActions.length
+                      ? quickActions
+                      : ([
+                          "approve",
+                          "reject",
+                          "ask_evidence",
+                          "reassign",
+                          "delay",
+                        ] as HqChatQuickAction[])
+                    ).map((action) => (
+                      <button
+                        key={action}
+                        type="button"
+                        disabled={
+                          locked ||
+                          (action === "reassign" &&
+                            !reassignTo &&
+                            Boolean(relatedRecommendation))
+                        }
+                        onClick={() => onQuickAction(action)}
+                        className={
+                          action === "approve"
+                            ? "lo-btn lo-btn--primary"
+                            : action === "reject"
+                              ? "lo-btn lo-btn--danger"
+                              : "lo-btn lo-btn--ghost"
+                        }
+                      >
+                        {action === "approve"
+                          ? "Approve"
                           : action === "reject"
-                            ? "lo-btn lo-btn--danger"
-                            : "lo-btn lo-btn--ghost"
-                      }
-                    >
-                      {action === "approve"
-                        ? "Approve"
-                        : action === "reject"
-                          ? "Reject"
-                          : action === "ask_evidence"
-                            ? "Ask for evidence"
-                            : action === "reassign"
-                              ? "Reassign"
-                              : "Delay"}
-                    </button>
-                  ))}
+                            ? "Reject"
+                            : action === "ask_evidence"
+                              ? "Ask for evidence"
+                              : action === "reassign"
+                                ? "Reassign"
+                                : "Delay"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              </details>
             ) : null}
 
-            <div className="lo-conversation__composer">
+            <div className={CONVERSATION_PANEL_LAYOUT.composerClass}>
               <input
                 className="lo-conversation__input"
                 placeholder="Ask a follow-up question…"
@@ -509,7 +558,7 @@ export function LiveOfficeConversationPanel({
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={onKeyDown}
                 disabled={locked}
-                aria-label="Follow-up question"
+                aria-label="Ask a follow-up question"
               />
               <button
                 type="button"
@@ -523,7 +572,7 @@ export function LiveOfficeConversationPanel({
 
             <Link
               href={`/builder/hq/employees/${employee.id}?workspaceId=${encodeURIComponent(workspaceId)}`}
-              className="lo-conversation__profile"
+              className={CONVERSATION_PANEL_LAYOUT.profileClass}
             >
               Open full profile →
             </Link>

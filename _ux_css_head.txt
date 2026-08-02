@@ -1,0 +1,44 @@
+﻿295:.hq-main {
+308:.hq-main > .lo-stage {
+362:.hq-main > .hq-dock {
+1724:.hq-dock {
+1733:.lo-conversation {
+1755:.lo-conversation__eyebrow {
+1766:.lo-conversation__title {
+1793:.lo-conversation__empty {
+1925:.lo-conversation__body-wrap {
+1932:.lo-conversation__body-wrap--swap {
+1936:.lo-conversation__head {
+1945:.lo-conversation__sub {
+1951:.lo-conversation__avatar {
+1964:.lo-conversation__list {
+1976:.lo-conversation__turn {
+1983:.lo-conversation__speaker {
+1990:.lo-conversation__body {
+1998:.lo-conversation__turn--ceo {
+2003:.lo-conversation__turn--proactive {
+2008:.lo-conversation__proactive-tag {
+2021:.lo-conversation__typing-dots {
+2028:.lo-conversation__typing-dots span {
+2036:.lo-conversation__typing-dots span:nth-child(2) {
+2039:.lo-conversation__typing-dots span:nth-child(3) {
+2056:.lo-conversation__error-row {
+2064:.lo-conversation__actions {
+2070:.lo-conversation__rec-title {
+2076:.lo-conversation__error {
+2082:.lo-conversation__reassign {
+2088:.lo-conversation__reassign select {
+2100:.lo-conversation__btns {
+2107:.lo-conversation__composer {
+2115:.lo-conversation__input {
+2126:.lo-conversation__input::placeholder {
+2130:.lo-conversation__profile {
+2137:.lo-conversation__profile:hover {
+2185:  .hq-main > .lo-stage {
+2197:  .hq-main {
+2200:  .hq-main > .lo-stage {
+2222:  .hq-dock {
+2225:  .hq-main > .lo-stage {
+2228:  .hq-main > .hq-dock {
+2287:  .hq-main > .hq-dock {
+2291:  .hq-main > .lo-stage {
